@@ -227,4 +227,4 @@ if __name__ == '__main__':
     reader = H5Reader(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/BEND/gene_finding.hdf5",
                       path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/SegmentNT-30kb.bend.h5")
 
-    # benchmark_all(reader, "/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/bend_test_set_ids.npy")
+    benchmark_all(reader, "/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/bend_test_set_ids.npy")
