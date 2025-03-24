@@ -10,5 +10,6 @@ dependencies = [
     "matplotlib>=3.10.1",
     "numpy>=2.2.4",
     "pandas>=2.2.3",
+    "pytest>=8.3.5",
     "seaborn>=0.13.2",
 ]

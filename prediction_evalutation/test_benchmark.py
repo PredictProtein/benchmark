@@ -23,17 +23,17 @@ from evaluate_predictors import benchmark_better
                 }
         ),
         (
-                np.array([[0,0,0,0,2,2,2,0,0,0],
-                          [8,8,8,0,0,0,0,0,8,8]]),
+                np.array([[0, 0, 0, 0, 2, 2, 2, 0, 0, 0],
+                          [8, 8, 8, 0, 0, 0, 0, 0, 8, 8]]),
                 {
                     "exon_left_extensions": [],
                     "exon_right_extensions": [],
                     "whole_exon_insertions": [],
-                    "exon_left_deletions": [np.array([0,1,2])],
-                    "exon_right_deletions": [np.array([8,9])],
+                    "exon_left_deletions": [np.array([0, 1, 2])],
+                    "exon_right_deletions": [np.array([8, 9])],
                     "whole_exon_deletions": [],
                     "split_exons": [],
-                    "joined_exons": [np.array([4,5,6,])],
+                    "joined_exons": [np.array([4, 5, 6, ])],
                     "total_gt_exons": [2],
                     "correct_pred_exons": [0]
                 }
@@ -53,7 +53,39 @@ from evaluate_predictors import benchmark_better
                     "total_gt_exons": [2],
                     "correct_pred_exons": [0]
                 }
-        )
+        ),
+        (
+                np.array([[8, 8, 8, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 0, 0, 8, 8, 8, 8],
+                          [8, 8, 8, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 0, 0, 8, 8, 8, 8]]),
+                {
+                    "exon_left_extensions": [],
+                    "exon_right_extensions": [],
+                    "whole_exon_insertions": [],
+                    "exon_left_deletions": [],
+                    "exon_right_deletions": [],
+                    "whole_exon_deletions": [],
+                    "split_exons": [],
+                    "joined_exons": [],
+                    "total_gt_exons": [3],
+                    "correct_pred_exons": [3]
+                }
+        ),
+        (
+                np.array([[8, 8, 8, 0, 0, 0, 0, 0, 2, 2, 2, 2],
+                          [8, 8, 8, 0, 0, 0, 0, 0, 8, 8, 8, 8]]),
+                {
+                    "exon_left_extensions": [],
+                    "exon_right_extensions": [],
+                    "whole_exon_insertions": [],
+                    "exon_left_deletions": [],
+                    "exon_right_deletions": [],
+                    "whole_exon_deletions": [],
+                    "split_exons": [],
+                    "joined_exons": [],
+                    "total_gt_exons": [1],
+                    "correct_pred_exons": [1]
+                }
+        ),
     ]
 )
 def test_benchmark(gt_pred_array: np.ndarray, expected_errors: dict):

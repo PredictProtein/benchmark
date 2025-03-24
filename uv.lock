@@ -12,6 +12,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pytest" },
     { name = "seaborn" },
 ]
 
@@ -22,6 +23,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numpy", specifier = ">=2.2.4" },
     { name = "pandas", specifier = ">=2.2.3" },
+    { name = "pytest", specifier = ">=8.3.5" },
     { name = "seaborn", specifier = ">=0.13.2" },
 ]
 
@@ -44,6 +46,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/02/b3/a2777b52f03d152aa1645b96b5c2028bf88a91d9b3894db14f53ef54c1de/bokeh-3.7.0.tar.gz", hash = "sha256:f19d74e40066a8c237ced80c181fd1329c3b28a9cf347126ea1409f90a9c7874", size = 6362243 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0d/15/6a3d627472f80fbc0e4a346e866ce015af60114014316757684f713c9377/bokeh-3.7.0-py3-none-any.whl", hash = "sha256:0e53301e5ac26f7545b51961e8851351e809f23a2caa7fc37c44f377ece759c4", size = 7025527 },
+]
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
 ]
 
 [[package]]
@@ -140,6 +151,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/69/84/4c6367d6b58deaf0fa84999ec819e7578eee96cea6cbd613640d0625ed5e/h5py-3.13.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:56dd172d862e850823c4af02dc4ddbc308f042b85472ffdaca67f1598dff4a57", size = 4664255 },
     { url = "https://files.pythonhosted.org/packages/fd/41/bc2df86b72965775f6d621e0ee269a5f3ac23e8f870abf519de9c7d93b4d/h5py-3.13.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:be949b46b7388074c5acae017fbbe3e5ba303fd9daaa52157fdfef30bbdacadd", size = 4927580 },
     { url = "https://files.pythonhosted.org/packages/97/34/165b87ea55184770a0c1fcdb7e017199974ad2e271451fd045cfe35f3add/h5py-3.13.0-cp313-cp313-win_amd64.whl", hash = "sha256:4f97ecde7ac6513b21cd95efdfc38dc6d19f96f6ca6f2a30550e94e551458e0a", size = 2940890 },
+]
+
+[[package]]
+name = "iniconfig"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/97/ebf4da567aa6827c909642694d71c9fcf53e5b504f2d96afea02718862f3/iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7", size = 4793 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2c/e1/e6716421ea10d38022b952c159d5161ca1193197fb744506875fbb87ea7b/iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760", size = 6050 },
 ]
 
 [[package]]
@@ -409,12 +429,36 @@ wheels = [
 ]
 
 [[package]]
+name = "pluggy"
+version = "1.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/96/2d/02d4312c973c6050a18b314a5ad0b3210edb65a906f868e31c111dede4a6/pluggy-1.5.0.tar.gz", hash = "sha256:2cffa88e94fdc978c4c574f15f9e59b7f4201d439195c3715ca9e2486f1d0cf1", size = 67955 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/88/5f/e351af9a41f866ac3f1fac4ca0613908d9a41741cfcf2228f4ad853b697d/pluggy-1.5.0-py3-none-any.whl", hash = "sha256:44e1ad92c8ca002de6377e165f3e0f1be63266ab4d554740532335b9d75ea669", size = 20556 },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.2.2"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/55/f0/3a81fb395058f5fc84bccb0dc9ca09eddf69b3cc86ccab6729c680121912/pyparsing-3.2.2.tar.gz", hash = "sha256:2a857aee851f113c2de9d4bfd9061baea478cb0f1c7ca6cbf594942d6d111575", size = 1088193 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/83/80c17698f41131f7157a26ae985e2c1f5526db79f277c4416af145f3e12b/pyparsing-3.2.2-py3-none-any.whl", hash = "sha256:6ab05e1cb111cc72acc8ed811a3ca4c2be2af8d7b6df324347f04fd057d8d793", size = 111060 },
+]
+
+[[package]]
+name = "pytest"
+version = "8.3.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "iniconfig" },
+    { name = "packaging" },
+    { name = "pluggy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ae/3c/c9d525a414d506893f0cd8a8d0de7706446213181570cdbd766691164e40/pytest-8.3.5.tar.gz", hash = "sha256:f4efe70cc14e511565ac476b57c279e12a855b11f48f212af1080ef2263d3845", size = 1450891 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/30/3d/64ad57c803f1fa1e963a7946b6e0fea4a70df53c1a7fed304586539c2bac/pytest-8.3.5-py3-none-any.whl", hash = "sha256:c69214aa47deac29fad6c2a4f590b9c4a9fdb16a403176fe154b79c0b4d4d820", size = 343634 },
 ]
 
 [[package]]

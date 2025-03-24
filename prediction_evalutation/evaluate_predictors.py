@@ -182,12 +182,18 @@ def _get_total_correct_exons(grouped_gt_exon_indices: list[np.ndarray], arr: np.
     total_exons = len(grouped_gt_exon_indices)
     for exon in grouped_gt_exon_indices:
         if exon.size == 0:
-            continue
+            return 0, 0
         left_boundry_index = exon[0] - 1
         rigth_boundry_index = exon[-1] + 1
         modified_exon = np.concatenate(([left_boundry_index], exon, [rigth_boundry_index]))
-        if (arr[0, modified_exon] == arr[1, modified_exon]).all():
-            true_pred += 1
+        # an exon is only correctly predicted if its boundaries are predicted correctly as well
+        #if (arr[0, modified_exon] == arr[1, modified_exon]).all():
+        #    true_pred += 1
+
+        # an exon is correct if the left and right exon boundaries are predicted to sth other than exon
+        if (arr[0, exon] == arr[1, exon]).all():
+            if arr[1,left_boundry_index] != 0 and arr[1,rigth_boundry_index] != 0:
+                true_pred += 1
 
     return total_exons, true_pred
 

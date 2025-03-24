@@ -32,3 +32,6 @@ uv run cli.py augustus-to-bend data/predictions/augustus.gff3 augustus.bend.h5
 ```bash
 uv run cli.py segmentnt-to-bend data/predictions/SegmentNT-30kb.h5 SegmentNT-30kb.bend.h5
 ```
+
+
+['1011', '1020', '1029', '103', '1039', '1049', '1059', '1069', '1079', '1088', '1098', '1108', '1109', '1110', ..., '830', '840', '850', '860', '870', '879', '889', '899', '909', '919', '929', '93', '947', '957', '970', '979', '989', '999']

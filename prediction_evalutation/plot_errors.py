@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import numpy as np
-
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from PlotPredictions import plot_pred_vs_gt
 from evaluate_predictors import benchmark_all, H5Reader, benchmark_better
+from matplotlib.ticker import MaxNLocator
 
 
 def plot_error_bar_plot(error_dict: dict):
@@ -54,6 +55,18 @@ def _clip_at_percentile(values:list[int],percentage:int) -> list[int]:
     clipped_values = [x for x in values if x < percentile]
     return clipped_values
 
+icon_map = {
+        "exon_left_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_extension.png",
+        "exon_right_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_extension.png",
+        "whole_exon_insertions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_insertion.png",
+        "joined_exons": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/joined_exons.png",
+        "exon_left_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_deletion.png",
+        "exon_right_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_deletion.png",
+        "whole_exon_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_deletion.png",
+        "split_exons": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/split_exons.png",
+    }
+
+
 def plot_individual_error_lengths(error_dict: dict):
     """
     Create multiple distribution plots for the different error lengths
@@ -64,24 +77,51 @@ def plot_individual_error_lengths(error_dict: dict):
         A plot with distribution sub plots for each key
     """
     method_name = error_dict.pop('name')
+
     # Extract individual error lengths for each key
     individual_error_lengths = {key: [len(error) for error in value] for key, value in error_dict.items()}
-    #individual_error_lengths= {key: _clip_at_percentile(value,95) for key, value in individual_error_lengths.items()}
-    # Set up the figure and axes
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(18, 8))
+
+    # Set up the figure and axes (more vertical space for icons)
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(18, 10), gridspec_kw={'hspace': 0.6})
     axes = axes.flatten()
-    fig.suptitle(method_name)# Flatten the 2D array of axes for easy iteration
+
+    plt.subplots_adjust(top=0.8)  # More padding at the top
+    #plt.tight_layout()
+
+    fig.suptitle(method_name.capitalize(), fontsize=16)
+
     # Iterate over each key and its corresponding error lengths
     for i, (key, lengths) in enumerate(individual_error_lengths.items()):
-        # Create a histogram for each set of error lengths
-        sns.histplot(np.log10(lengths), bins=100, kde=True, ax=axes[i])  # Adjust bins and other params as needed
-        axes[i].set_title(f'{key}')
-        axes[i].set_xlabel('Log10 transformed error lengths')
+        sns.histplot(np.log10(lengths), bins=100, kde=True, ax=axes[i])
+        axes[i].set_title(f'{key}', fontsize=12)
+        axes[i].set_xlabel('Length of false pred (log10)')
         axes[i].set_ylabel('Frequency')
+        axes[i].yaxis.set_major_locator(MaxNLocator(integer=True))
 
-    # Adjust layout to prevent overlap
-    plt.tight_layout()
+        # Add the icon if available in icon_map
+        if key in icon_map:
+            add_icon(axes[i], icon_map[key], zoom=0.15, x=0.5, y=1.25)  # Move above the plot
+
+    #plt.tight_layout()
     plt.show()
+
+
+def add_icon(ax, icon_path, zoom=0.15, x=0.5, y=1.25):
+    """
+    Add an image (icon) **above** the given subplot.
+
+    Args:
+        ax (matplotlib.axes.Axes): The subplot to position relative to.
+        icon_path (str): Path to the icon image file.
+        zoom (float): Scaling for the icon.
+        x (float): X-position relative to the subplot (0=left, 1=right).
+        y (float): Y-position above the subplot.
+    """
+    icon_img = plt.imread(icon_path)
+    imagebox = OffsetImage(icon_img, zoom=zoom)
+
+    ab = AnnotationBbox(imagebox, (x, y), xycoords=ax.transAxes, frameon=False)
+    ax.add_artist(ab)
 
 
 def plot_overall_erros():
@@ -99,15 +139,19 @@ def plot_overall_erros():
 
 
 def compute_and_plot_one():
-    reader = H5Reader(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/BEND/gene_finding.hdf5",
-                      path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/SegmentNT-30kb.bend.h5")
+    reader = H5Reader(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
+                      path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5")
 
-    bend_id = '23'
+    bend_id = '999'
     bend_annot,_ = reader.get_gt_pred_pair(bend_id)
     benchmark_results = benchmark_better(bend_annot[0], bend_annot[1])
+    benchmark_results["name"] = f"sigle_test{bend_id}"
 
     total_exons = benchmark_results.pop("total_gt_exons")
     total_correct_pred = benchmark_results.pop("correct_pred_exons")
+
+    print(f"Total exons: {total_exons}")
+    print(f"Correct predictions: {total_correct_pred}")
 
     plot_error_bar_plot(benchmark_results)
     plot_individual_error_lengths(benchmark_results)
@@ -237,11 +281,11 @@ def plot_multiple_benchmarks(path_to_gt:str,paths_to_benchmarks:list[str],path_t
     for result_dict in all_results:
         plot_individual_error_lengths(result_dict)
 
-def _rainCloudPlot(df:pd.DataFrame,ax):
-    pass
 
 if __name__ == '__main__':
-    plot_multiple_benchmarks(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/BEND/gene_finding.hdf5",
-                              paths_to_benchmarks=["/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
-                                                   "/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/augustus.bend.h5"],
-                              path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/bend_test_set_ids.npy")
+    plot_multiple_benchmarks(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
+                              paths_to_benchmarks=["/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
+                                                   #"/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
+                                                   "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5"],
+                              path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy")
+    compute_and_plot_one()
