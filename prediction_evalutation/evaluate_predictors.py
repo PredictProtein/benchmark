@@ -182,6 +182,7 @@ def _get_total_correct_exons(grouped_gt_exon_indices: list[np.ndarray], arr: np.
     total_exons = len(grouped_gt_exon_indices)
     for exon in grouped_gt_exon_indices:
         if exon.size == 0:
+            assert np.sum([x.shape for x in grouped_gt_exon_indices]) == 0, "An empty exon was detected but other exons have content WTF"
             return 0, 0
         left_boundry_index = exon[0] - 1
         rigth_boundry_index = exon[-1] + 1
