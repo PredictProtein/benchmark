@@ -7,7 +7,7 @@ import seaborn as sns
 import numpy as np
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from PlotPredictions import plot_pred_vs_gt
-from evaluate_predictors import benchmark_all, H5Reader, benchmark_better
+from evaluate_predictors import benchmark_all, H5Reader, benchmark_gt_vs_pred, BendLabels
 from matplotlib.ticker import MaxNLocator
 
 
@@ -142,19 +142,20 @@ def compute_and_plot_one():
     reader = H5Reader(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
                       path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5")
 
-    bend_id = '999'
+    bend_id = '23'
     bend_annot,_ = reader.get_gt_pred_pair(bend_id)
-    benchmark_results = benchmark_better(bend_annot[0], bend_annot[1])
+    benchmark_results = benchmark_gt_vs_pred(bend_annot[0], bend_annot[1],labels=BendLabels,
+                                                         classes=[BendLabels.EXON,BendLabels.INTRON])
     benchmark_results["name"] = f"sigle_test{bend_id}"
+    print(benchmark_results)
+    #total_exons = benchmark_results.pop("total_gt_exons")
+    #total_correct_pred = benchmark_results.pop("correct_pred_exons")
 
-    total_exons = benchmark_results.pop("total_gt_exons")
-    total_correct_pred = benchmark_results.pop("correct_pred_exons")
+    #print(f"Total exons: {total_exons}")
+    #print(f"Correct predictions: {total_correct_pred}")
 
-    print(f"Total exons: {total_exons}")
-    print(f"Correct predictions: {total_correct_pred}")
-
-    plot_error_bar_plot(benchmark_results)
-    plot_individual_error_lengths(benchmark_results)
+    #plot_error_bar_plot(benchmark_results)
+    #plot_individual_error_lengths(benchmark_results)
 
     plot_pred_vs_gt(bend_annot[0], bend_annot[1])
 
@@ -283,9 +284,9 @@ def plot_multiple_benchmarks(path_to_gt:str,paths_to_benchmarks:list[str],path_t
 
 
 if __name__ == '__main__':
-    plot_multiple_benchmarks(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
-                              paths_to_benchmarks=["/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
-                                                   #"/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
-                                                   "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5"],
-                              path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy")
+    #plot_multiple_benchmarks(path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
+    #                          paths_to_benchmarks=["/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
+    #                                               #"/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
+    #                                               "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5"],
+    #                          path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy")
     compute_and_plot_one()
