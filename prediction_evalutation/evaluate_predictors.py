@@ -52,7 +52,7 @@ class H5Reader:
         # replace all reverse labels
         bend_array_forward[np.isin(bend_array, [4, 5, 6, 7])] = 8
         # set splice sites to intron
-        bend_array_forward[np.isin(bend_array, [1, 3])] = 2
+        #bend_array_forward[np.isin(bend_array, [1, 3])] = 2
 
         bend_array_reverse = np.copy(bend_array)
         # replace all forward labels
@@ -212,7 +212,7 @@ def benchmark_gt_vs_pred_multiple(
             results[label_class.name][EvalMetrics.ML.name] = _get_summary_statistics(
                 gt_labels=np.concatenate(gt_labels), pred_labels=np.concatenate(pred_labels), target_class=label_class)
 
-    print("hi")
+    return  results
 
 
 def _classify_exon_mismatches(
@@ -340,8 +340,6 @@ def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, targ
 
 
 def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
-    results = defaultdict(lambda: defaultdict(list))
-
     ids = np.load(path_to_ids)
 
     gts = []
@@ -352,12 +350,12 @@ def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
 
         gts.append(bend_annot_forward[0])
         preds.append(bend_annot_forward[1])
-        gts.append(bend_annot_reverse[0])
-        preds.append(bend_annot_reverse[1])
+        #gts.append(bend_annot_reverse[0])
+        #preds.append(bend_annot_reverse[1])
 
-    benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=metrics)
+    return benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=metrics)
 
-    return results
+
 
 
 if __name__ == "__main__":
@@ -370,7 +368,7 @@ if __name__ == "__main__":
         reader,
         path_to_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
         labels=BendLabels,
-        classes=[BendLabels.EXON],
+        classes=[BendLabels.EXON,BendLabels.AF,BendLabels.DF],
         metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML],
     )
 

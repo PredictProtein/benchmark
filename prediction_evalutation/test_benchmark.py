@@ -189,6 +189,51 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             },
             id="exon_ml_metrics",
         ),
+        pytest.param(
+            np.array([[8, 8, 8, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 8, 8],
+                              [8, 8, 8, 0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 8, 8]]),
+            [BendLabels.EXON, BendLabels.DF, BendLabels.AF],
+            [EvalMetrics.INDEL],
+            {
+                "EXON": {
+                    "INDEL": {
+                        "left_extensions": [np.array([13])],
+                        "right_extensions": [],
+                        "whole_insertions": [],
+                        "left_deletions": [],
+                        "right_deletions": [],
+                        "whole_deletions": [],
+                        "split": [],
+                        "joined": [],
+                    },
+                },
+                "DF": {
+                    "INDEL": {
+                        "left_extensions": [],
+                        "right_extensions": [],
+                        "whole_insertions": [],
+                        "left_deletions": [],
+                        "right_deletions": [np.array([7])],
+                        "whole_deletions": [],
+                        "split": [],
+                        "joined": [],
+                    },
+                },
+                "AF": {
+                    "INDEL": {
+                        "left_extensions": [],
+                        "right_extensions": [],
+                        "whole_insertions": [],
+                        "left_deletions": [],
+                        "right_deletions": [np.array([13])],
+                        "whole_deletions": [],
+                        "split": [],
+                        "joined": [],
+                    },
+                }
+            },
+            id="splice_sites_detection",
+        ),
     ],
 )
 def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_errors: dict):
@@ -231,6 +276,7 @@ def test_benchmark_multiple(gt_pred_arrays: list[np.ndarray], classes, metrics, 
         expected_results = expected_errors[class_key]
         for metric in metrics:
             metric_eval_mapping[metric](expected_results[metric.name], class_results[metric.name])
+
 
 def _eval_section_metrics(expected_section_metrics, computed_section_metrics):
     assert set(expected_section_metrics.keys()) == set(computed_section_metrics.keys()), "the keys dont match"
