@@ -10,7 +10,7 @@ from PlotPredictions import plot_pred_vs_gt
 from evaluate_predictors import (
     benchmark_all,
     H5Reader,
-    benchmark_gt_vs_pred,
+    benchmark_gt_vs_pred_single,
     BendLabels,
 )
 from matplotlib.ticker import MaxNLocator
@@ -157,7 +157,7 @@ def compute_and_plot_one():
     bend_annot, ben_anot_rev = reader.get_gt_pred_pair(bend_id)
     if (np.array(bend_annot) == 8).all():
         bend_annot = ben_anot_rev
-    benchmark_results = benchmark_gt_vs_pred(
+    benchmark_results = benchmark_gt_vs_pred_single(
         bend_annot[0],
         bend_annot[1],
         labels=BendLabels,

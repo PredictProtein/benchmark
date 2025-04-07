@@ -23,7 +23,8 @@ class BendLabels(Enum):
 class EvalMetrics(Enum):
     INDEL = 0
     SECTION = 1
-    ML = 2
+    ML = 2  # allows to compute mcc recall ... on a single seq
+    _MLMULTIPLE = 3  # allows to compute mcc recall ... across multiple seqs with different averaging
 
 
 default_metrics = [EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML]
@@ -72,12 +73,12 @@ class H5Reader:
         return (gt_fow_rev[0], pred_fov_rev[0]), (gt_fow_rev[1], pred_fov_rev[1])
 
 
-def benchmark_gt_vs_pred(
-    gt_labels: np.ndarray,
-    pred_labels: np.ndarray,
-    labels: Type[dna_class_label_enum],
-    classes: list[dna_class_label_enum],
-    metrics: Optional[list[EvalMetrics]] = None,
+def benchmark_gt_vs_pred_single(
+        gt_labels: np.ndarray,
+        pred_labels: np.ndarray,
+        labels: Type[dna_class_label_enum],
+        classes: list[dna_class_label_enum],
+        metrics: Optional[list[EvalMetrics]] = None,
 ) -> dict[str, dict[str, list[np.ndarray]]]:
     """
     This method compares the ground truth annotation of a sequence with the predicted annotation of a sequence. It identifies
@@ -141,43 +142,81 @@ def benchmark_gt_vs_pred(
                 )
             )
 
-            metric_results[dna_label_class.name].update(
-                {
-                    "left_extensions": grouped_exon_left_extensions,
-                    "right_extensions": grouped_exon_right_extensions,
-                    "whole_insertions": grouped_whole_exon_insertions,
-                    "joined": joined_exons,
-                    "left_deletions": grouped_exon_left_deletions,
-                    "right_deletions": grouped_exon_right_deletions,
-                    "whole_deletions": grouped_whole_exon_deletions,
-                    "split": split_exons,
-                }
-            )
+            metric_results[dna_label_class.name][EvalMetrics.INDEL.name] = {
+                "left_extensions": grouped_exon_left_extensions,
+                "right_extensions": grouped_exon_right_extensions,
+                "whole_insertions": grouped_whole_exon_insertions,
+                "joined": joined_exons,
+                "left_deletions": grouped_exon_left_deletions,
+                "right_deletions": grouped_exon_right_deletions,
+                "whole_deletions": grouped_whole_exon_deletions,
+                "split": split_exons,
+            }
 
         if EvalMetrics.SECTION in metrics:
             total_gt_exons, correct_pred_exons, got_all_right = _get_total_correct_exons(
                 grouped_gt_exon_indices, arr=arr
             )
-            metric_results[dna_label_class.name].update(
-                {
-                    "total_gt": [total_gt_exons],
-                    "correct_pred": [correct_pred_exons],
-                    "got_all_right": [got_all_right] if got_all_right is not None else [],
-                }
-            )
+            metric_results[dna_label_class.name][EvalMetrics.SECTION.name] = {
+                "total_gt": [total_gt_exons],
+                "correct_pred": [correct_pred_exons],
+                "got_all_right": [got_all_right] if got_all_right is not None else [],
+            }
 
         if EvalMetrics.ML in metrics:
             label_metrics = _get_summary_statistics(
                 gt_labels=gt_labels, pred_labels=pred_labels, target_class=dna_label_class
             )
+            metric_results[dna_label_class.name][EvalMetrics.ML.name] = label_metrics
 
-            metric_results[dna_label_class.name].update(label_metrics)
+        if EvalMetrics._MLMULTIPLE in metrics:
+            metric_results[dna_label_class.name][EvalMetrics.ML.name] = {
+                "gt_labels": gt_labels,
+                "pred_labels": pred_labels,
+            }
 
     return metric_results
 
 
+def benchmark_gt_vs_pred_multiple(
+        gt_labels: list[np.ndarray],
+        pred_labels: list[np.ndarray],
+        labels: Type[dna_class_label_enum],
+        classes: list[dna_class_label_enum],
+        metrics: Optional[list[EvalMetrics]] = None,
+) -> dict[str, dict[str, list[np.ndarray]]]:
+    assert len(gt_labels) == len(pred_labels), "The length of gt and pred must match"
+    compute_micro_avg_metrics = False
+    results = {}
+    for label_class in classes:
+        results[label_class.name] = {}
+        for metric in metrics:
+            results[label_class.name][metric.name] = defaultdict(list)
+
+    if EvalMetrics.ML in metrics:
+        metrics.remove(EvalMetrics.ML)
+        compute_micro_avg_metrics = True
+
+    for i in range(len(gt_labels)):
+        seq_benchmark_results = benchmark_gt_vs_pred_single(gt_labels=gt_labels[i], pred_labels=pred_labels[i], labels=labels, classes=classes,
+                                                            metrics=metrics)
+
+        assert seq_benchmark_results.keys() == results.keys()
+        for label_class in seq_benchmark_results.keys():
+            for metric in seq_benchmark_results[label_class].keys():
+                for x in seq_benchmark_results[label_class][metric]:
+                    results[label_class][metric][x].extend(seq_benchmark_results[label_class][metric][x])
+
+    if compute_micro_avg_metrics:
+        for label_class in classes:
+            results[label_class.name][EvalMetrics.ML.name] = _get_summary_statistics(
+                gt_labels=np.concatenate(gt_labels), pred_labels=np.concatenate(pred_labels), target_class=label_class)
+
+    print("hi")
+
+
 def _classify_exon_mismatches(
-    grouped_indices: list[np.ndarray], gt_pred_arr: np.ndarray, label_class
+        grouped_indices: list[np.ndarray], gt_pred_arr: np.ndarray, label_class
 ) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
     """
         Once the insertions or deletions are identified they are sorted into 4 categories:
@@ -207,14 +246,14 @@ def _classify_exon_mismatches(
 
         # conditions for there being an exon in both gt and pred
         exon_on_the_left = (
-            int(gt_pred_arr[0, last_deletion_index + 1])
-            == int(gt_pred_arr[1, last_deletion_index + 1])
-            == label_class.value
+                int(gt_pred_arr[0, last_deletion_index + 1])
+                == int(gt_pred_arr[1, last_deletion_index + 1])
+                == label_class.value
         )
         exon_on_the_right = (
-            int(gt_pred_arr[0, first_deletion_index - 1])
-            == int(gt_pred_arr[1, first_deletion_index - 1])
-            == label_class.value
+                int(gt_pred_arr[0, first_deletion_index - 1])
+                == int(gt_pred_arr[1, first_deletion_index - 1])
+                == label_class.value
         )
 
         # sort the mismatches based on what they have ahead behind them
@@ -297,7 +336,7 @@ def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, targ
     fp = np.sum((binary_gt == 0) & (binary_pred == 1))
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
 
-    return {"mcc": [mcc], "recall": [recall], "precision": [precision], "specificity": [specificity]}
+    return {"mcc": mcc, "recall": recall, "precision": precision, "specificity": specificity}
 
 
 def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
@@ -305,31 +344,18 @@ def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
 
     ids = np.load(path_to_ids)
 
+    gts = []
+    preds = []
+
     for seq_id in tqdm(ids):
         bend_annot_forward, bend_annot_reverse = reader.get_gt_pred_pair(seq_id)
 
-        benchmark_results_forward = benchmark_gt_vs_pred(
-            gt_labels=bend_annot_forward[0],
-            pred_labels=bend_annot_forward[1],
-            labels=labels,
-            classes=classes,
-            metrics=metrics,
-        )
-        benchmark_results_reverse = benchmark_gt_vs_pred(
-            gt_labels=bend_annot_reverse[0],
-            pred_labels=bend_annot_reverse[1],
-            labels=BendLabels,
-            classes=classes,
-            metrics=metrics,
-        )
+        gts.append(bend_annot_forward[0])
+        preds.append(bend_annot_forward[1])
+        gts.append(bend_annot_reverse[0])
+        preds.append(bend_annot_reverse[1])
 
-        for label_class, val in benchmark_results_forward.items():
-            for key, error in val.items():
-                results[label_class][key].extend(error)
-
-        for label_class, val in benchmark_results_reverse.items():
-            for key, error in val.items():
-                results[label_class][key].extend(error)
+    benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=metrics)
 
     return results
 
@@ -337,7 +363,7 @@ def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
 if __name__ == "__main__":
     reader = H5Reader(
         path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
-        path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
+        path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
     )
 
     res = benchmark_all(
