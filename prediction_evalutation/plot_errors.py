@@ -12,9 +12,10 @@ from evaluate_predictors import (
     H5Reader,
     benchmark_gt_vs_pred_single,
     BendLabels,
+    EvalMetrics
 )
 from matplotlib.ticker import MaxNLocator
-
+import ast
 
 def plot_error_bar_plot(error_dict: dict):
     """
@@ -305,14 +306,118 @@ def plot_multiple_benchmarks(path_to_gt: str, paths_to_benchmarks: list[str], pa
         plot_individual_error_lengths(result_dict)
 
 
+def compare_prediction_results(path_to_gt: str, paths_to_benchmarks: list[str], path_to_seq_ids: str, labels, classes, metrics):
+    all_results = {}
+
+    for results_path in paths_to_benchmarks:
+        reader = H5Reader(path_to_gt=path_to_gt, path_to_predictions=results_path)
+        benchmark_results = benchmark_all(reader=reader, path_to_ids=path_to_seq_ids, labels=labels, classes=classes, metrics=metrics)
+        benchmark_name = results_path.split("/")[-1].split(".")[0]
+        all_results[benchmark_name] = benchmark_results
+
+    # parse the results into a df in long format
+    benchmark_df = pd.DataFrame(columns=["method_name","measured_class","metric_group","metric_key","value"])
+    data = []
+    for method_name, measured_classes in all_results.items():
+        for measured_class, metric_grouping in measured_classes.items():
+            for metric_group, metric_data in metric_grouping.items():
+                for single_metric_key, val in metric_data.items():
+
+                    if metric_group == EvalMetrics.INDEL.name:
+                        data.append([method_name, measured_class, metric_group, single_metric_key, [len(x) for x in val]])
+                    else:
+                        data.append([method_name,measured_class,metric_group,single_metric_key,val])
+
+    benchmark_df = pd.DataFrame(data = data,columns=["method_name", "measured_class", "metric_group", "metric_key", "value"])
+
+    for class_ in classes:
+        df_class_indel = benchmark_df[
+            (benchmark_df['measured_class'] == class_.name) & (benchmark_df['metric_group'] == EvalMetrics.INDEL.name)].copy()
+        plot_stacked_indel_bar(df_class_indel, class_.name)
+        def_class_section = benchmark_df[
+            (benchmark_df['measured_class'] == class_.name) & (benchmark_df['metric_group'] == EvalMetrics.SECTION.name)].copy()
+        plot_total_right_bar(def_class_section,class_.name)
+
+
+
+        print("hi")
+
+def plot_stacked_indel_bar(df_indel: pd.DataFrame, class_name: str):
+    """
+    Given a DataFrame of indel data for a specific class (EXON or INTRON),
+    plot the counts of different indel types as a stacked bar plot.
+
+    Args:
+        df_indel: DataFrame containing indel data for one class.
+        class_name: The name of the class (e.g., "EXON" or "INTRON") for the plot title.
+
+    Returns:
+        Plots a stacked bar plot of indel counts.
+    """
+    # Group by method and INDEL type, then get the size of the 'value' Series
+    indel_counts = df_indel.groupby(['method_name', 'metric_key'])['value'].apply(lambda x: len(x.iloc[0])).unstack(fill_value=0)
+
+    # Calculate the total counts for each method
+    total_counts = indel_counts.sum(axis=1)
+
+    # Create the stacked bar plot
+    ax = indel_counts.plot(kind="barh", stacked=True, figsize=(11, 6))
+
+    # Add total counts at the end of each bar
+    for i, v in enumerate(total_counts):
+        ax.text(v + 3, i, str(v), color='black', fontweight='bold')
+
+    # Add plot title and labels for better understanding
+    plt.title(f"INDEL Counts by Method - {class_name} (Total)")
+    plt.xlabel("Number of INDELs")
+    plt.ylabel("Method Name")
+    plt.legend(title="INDEL Type")
+    plt.tight_layout()
+    plt.show()
+
+def plot_total_right_bar(df_section: pd.DataFrame, class_name: str):
+
+    section_counts = df_section.groupby(['method_name', 'metric_key'])['value'].apply(lambda x: sum(x.iloc[0])).unstack(fill_value=0)
+    section_counts.drop(columns=["got_all_right"],inplace=True)
+    section_counts_melt = section_counts.reset_index().melt(id_vars='method_name', var_name='metric', value_name='value')
+
+    plt.figure(figsize=(11, 6))
+    ax = sns.barplot(
+        data=section_counts_melt,
+        x="value",
+        y="method_name",
+        hue='metric',
+        orient='h',
+    )
+
+    # Add labels
+    for container in ax.containers:
+        ax.bar_label(container, label_type='edge', padding=3, fmt='%d')
+
+    plt.subplots_adjust(left=0.22)
+    plt.title(f"Correctly predicted sections Counts by Method - {class_name} (Total)")
+    plt.xlabel("Count")
+    plt.ylabel("Method Name")
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+
+
+
 if __name__ == "__main__":
-    #plot_multiple_benchmarks(
-    #    path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
-    #    paths_to_benchmarks=[
-    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
-    #        # "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
-    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
-    #    ],
-    #    path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
-    #)
+    compare_prediction_results(
+        path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
+        paths_to_benchmarks=[
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
+            # "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
+        ],
+        path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
+        labels=BendLabels,
+        classes= [BendLabels.INTRON],
+        metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML],
+    )
     compute_and_plot_one()

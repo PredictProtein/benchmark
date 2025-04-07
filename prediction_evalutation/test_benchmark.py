@@ -234,6 +234,22 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             },
             id="splice_sites_detection",
         ),
+pytest.param(
+            np.array([[8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8],
+                              [8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8]]),
+            [BendLabels.INTRON],
+            [EvalMetrics.SECTION],
+            {
+                "INTRON": {
+                    "SECTION": {
+                        "total_gt": [1],
+                        "correct_pred": [1],
+                        "got_all_right": [True],
+                    }
+                }
+            },
+            id="Intron_section_test",
+        ),
     ],
 )
 def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_errors: dict):
@@ -257,10 +273,10 @@ def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_
             metric_eval_mapping[metric](expected_results[metric.name], class_results[metric.name])
 
 
-def test_benchmark_multiple(gt_pred_arrays: list[np.ndarray], classes, metrics, expected_errors: dict):
-    benchmark_results = benchmark_gt_vs_pred_single(
-        gt_labels=gt_pred_array[0], pred_labels=gt_pred_array[1], labels=BendLabels, classes=classes, metrics=metrics
-    )
+#def test_benchmark_multiple(gt_pred_arrays: list[np.ndarray], classes, metrics, expected_errors: dict):
+#    benchmark_results = benchmark_gt_vs_pred_single(
+#        gt_labels=gt_pred_array[0], pred_labels=gt_pred_array[1], labels=BendLabels, classes=classes, metrics=metrics
+#    )
 
     metric_eval_mapping = {
         EvalMetrics.INDEL: _eval_indel_metrics,

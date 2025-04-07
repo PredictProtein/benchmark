@@ -52,7 +52,7 @@ class H5Reader:
         # replace all reverse labels
         bend_array_forward[np.isin(bend_array, [4, 5, 6, 7])] = 8
         # set splice sites to intron
-        #bend_array_forward[np.isin(bend_array, [1, 3])] = 2
+        bend_array_forward[np.isin(bend_array, [1, 3])] = 2
 
         bend_array_reverse = np.copy(bend_array)
         # replace all forward labels
@@ -155,7 +155,7 @@ def benchmark_gt_vs_pred_single(
 
         if EvalMetrics.SECTION in metrics:
             total_gt_exons, correct_pred_exons, got_all_right = _get_total_correct_exons(
-                grouped_gt_exon_indices, arr=arr
+                grouped_gt_exon_indices, arr=arr, dna_label_class=dna_label_class
             )
             metric_results[dna_label_class.name][EvalMetrics.SECTION.name] = {
                 "total_gt": [total_gt_exons],
@@ -283,7 +283,7 @@ def _classify_exon_mismatches(
     )
 
 
-def _get_total_correct_exons(grouped_gt_exon_indices: list[np.ndarray], arr: np.array):
+def _get_total_correct_exons(grouped_gt_exon_indices: list[np.ndarray], arr: np.array, dna_label_class):
     true_pred = 0
     total_exons = len(grouped_gt_exon_indices)
     got_all_right = False
@@ -302,7 +302,7 @@ def _get_total_correct_exons(grouped_gt_exon_indices: list[np.ndarray], arr: np.
 
         # an exon is correct if the left and right exon boundaries are predicted to sth other than exon
         if (arr[0, exon] == arr[1, exon]).all():
-            if arr[1, left_boundary_index] != 0 and arr[1, right_boundary_index] != 0:
+            if arr[1, left_boundary_index] != dna_label_class.value and arr[1, right_boundary_index] != dna_label_class.value:
                 true_pred += 1
 
     if total_exons == true_pred:
@@ -344,7 +344,6 @@ def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, targ
 
 def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
     ids = np.load(path_to_ids)
-
     gts = []
     preds = []
 
@@ -353,8 +352,8 @@ def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
 
         gts.append(bend_annot_forward[0])
         preds.append(bend_annot_forward[1])
-        #gts.append(bend_annot_reverse[0])
-        #preds.append(bend_annot_reverse[1])
+        gts.append(bend_annot_reverse[0])
+        preds.append(bend_annot_reverse[1])
 
     return benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=metrics)
 
