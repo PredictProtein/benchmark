@@ -105,20 +105,20 @@ def benchmark_gt_vs_pred_single(
     # index 1: predictions
     arr = np.stack((gt_labels, pred_labels), axis=0)
 
+    # create a dict to store the results
     metric_results = {}
+    # iterate and compute metrics for each requested label e.g. exons and introns
     for dna_label_class in classes:
         metric_results[dna_label_class.name] = {}
 
-        # find all occurrences where the prediction predicted an exon where there isn't any
-        # GT is either 2/8 and Pred is 0
+        # find all occurrences where the prediction predicted the class but was wrong
         insertion_condition = (arr[0, :] != dna_label_class.value) & (arr[1, :] == dna_label_class.value)
         insertion_indices = np.where(insertion_condition)[0]
-        # find all occurrences where the prediction predicted and intron or non-coding where there is an exon
-        # GT is 0 and Pred is 2/8
+        # find all occurrences where the prediction predicted another class than the expected one
         deletion_condition = (arr[0, :] == dna_label_class.value) & (arr[1, :] != dna_label_class.value)
         deletion_indices = np.where(deletion_condition)[0]
 
-        # find all gt exons
+        # find all gt sections
         gt_exon_condition = arr[0, :] == dna_label_class.value
         gt_exon_indices = np.where(gt_exon_condition)[0]
 
@@ -169,12 +169,6 @@ def benchmark_gt_vs_pred_single(
             )
             metric_results[dna_label_class.name][EvalMetrics.ML.name] = label_metrics
 
-        if EvalMetrics._MLMULTIPLE in metrics:
-            metric_results[dna_label_class.name][EvalMetrics.ML.name] = {
-                "gt_labels": gt_labels,
-                "pred_labels": pred_labels,
-            }
-
     return metric_results
 
 
@@ -185,28 +179,37 @@ def benchmark_gt_vs_pred_multiple(
         classes: list[dna_class_label_enum],
         metrics: Optional[list[EvalMetrics]] = None,
 ) -> dict[str, dict[str, list[np.ndarray]]]:
+    # check data integrity
     assert len(gt_labels) == len(pred_labels), "The length of gt and pred must match"
+    # metrics shall be computed across all computed labels instead of per sequence (micro averaging instead of macro avg)
     compute_micro_avg_metrics = False
+    # create a dict to store results
     results = {}
+    # init the dict with the same structure as the output
     for label_class in classes:
         results[label_class.name] = {}
         for metric in metrics:
             results[label_class.name][metric.name] = defaultdict(list)
 
+    # remove the ML metric flag so no per seq perfmetrics are computed
     if EvalMetrics.ML in metrics:
         metrics.remove(EvalMetrics.ML)
         compute_micro_avg_metrics = True
 
+    # run the single seq benchmark for every gt / pred pair
     for i in range(len(gt_labels)):
         seq_benchmark_results = benchmark_gt_vs_pred_single(gt_labels=gt_labels[i], pred_labels=pred_labels[i], labels=labels, classes=classes,
                                                             metrics=metrics)
 
         assert seq_benchmark_results.keys() == results.keys()
+
+        # append the result of the sequence to the over all results
         for label_class in seq_benchmark_results.keys():
             for metric in seq_benchmark_results[label_class].keys():
                 for x in seq_benchmark_results[label_class][metric]:
                     results[label_class][metric][x].extend(seq_benchmark_results[label_class][metric][x])
 
+    # if metrics were requested compute them across all gt/preds and for each label
     if compute_micro_avg_metrics:
         for label_class in classes:
             results[label_class.name][EvalMetrics.ML.name] = _get_summary_statistics(
