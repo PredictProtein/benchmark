@@ -8,7 +8,7 @@ from typing import TypeVar, Type, Optional
 from enum import Enum
 from sklearn.metrics import matthews_corrcoef, recall_score, precision_score
 from tqdm import tqdm
-
+from copy import deepcopy
 dna_class_label_enum = TypeVar("dna_class_label_enum", bound=Enum)
 
 
@@ -355,7 +355,7 @@ def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics):
         gts.append(bend_annot_reverse[0])
         preds.append(bend_annot_reverse[1])
 
-    return benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=metrics)
+    return benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=deepcopy(metrics))
 
 
 
@@ -370,8 +370,8 @@ if __name__ == "__main__":
         reader,
         path_to_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
         labels=BendLabels,
-        classes=[BendLabels.EXON,BendLabels.AF,BendLabels.DF],
-        metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML],
+        classes=[BendLabels.EXON],
+        metrics=[EvalMetrics.INDEL],
     )
 
     print(res)

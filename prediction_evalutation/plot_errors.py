@@ -62,55 +62,63 @@ def _clip_at_percentile(values: list[int], percentage: int) -> list[int]:
 
 
 icon_map = {
-    "exon_left_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_extension.png",
-    "exon_right_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_extension.png",
-    "whole_exon_insertions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_insertion.png",
-    "joined_exons": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/joined_exons.png",
-    "exon_left_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_deletion.png",
-    "exon_right_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_deletion.png",
-    "whole_exon_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_deletion.png",
-    "split_exons": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/split_exons.png",
+    "left_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_extension.png",
+    "right_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_extension.png",
+    "whole_insertions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_insertion.png",
+    "joined": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/joined_exons.png",
+    "left_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_deletion.png",
+    "right_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_deletion.png",
+    "whole_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_deletion.png",
+    "split": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/split_exons.png",
 }
 
 
-def plot_individual_error_lengths(error_dict: dict):
+def plot_individual_error_lengths_from_df(df: pd.DataFrame, class_name):
     """
-    Create multiple distribution plots for the different error lengths
+    Plot histograms of individual error lengths for a given method_name.
+
     Args:
-        error_dict: A Dict with the error keys
-
-    Returns:
-        A plot with distribution sub plots for each key
+        df: DataFrame containing columns ['method_name', 'metric_key', 'value'].
+        method_name: The method to visualize (e.g., 'augustus').
     """
-    method_name = error_dict.pop("name")
+    method_dfs = df.groupby(['method_name', 'metric_key'])['value'].apply(lambda x: x.iloc[0]).unstack(fill_value=0)
+    # Parse the list values from string to actual lists
 
-    # Extract individual error lengths for each key
-    individual_error_lengths = {key: [len(error) for error in value] for key, value in error_dict.items()}
+    unique_methods = method_dfs.index.tolist()
+    palette = sns.color_palette("tab10", n_colors=len(unique_methods))
+    method_colors = {method: color for method, color in zip(unique_methods, palette)}
 
-    # Set up the figure and axes (more vertical space for icons)
+    # Set up the figure and axes
     fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(18, 10), gridspec_kw={"hspace": 0.6})
     axes = axes.flatten()
 
-    plt.subplots_adjust(top=0.8)  # More padding at the top
-    # plt.tight_layout()
+    plt.subplots_adjust(top=0.8)
 
-    fig.suptitle(method_name.capitalize(), fontsize=16)
-
-    # Iterate over each key and its corresponding error lengths
-    for i, (key, lengths) in enumerate(individual_error_lengths.items()):
-        sns.histplot(np.log10(lengths), bins=100, kde=True, ax=axes[i])
-        axes[i].set_title(f"{key}", fontsize=12)
-        axes[i].set_xlabel("Length of false pred (log10)")
-        axes[i].set_ylabel("Frequency")
+    for i,col in enumerate(method_dfs.columns):
+        for m in method_dfs.index:
+            sns.histplot(np.log10(method_dfs.loc[m,col]), bins=30, kde=True, ax=axes[i],color=method_colors[m], label=m)
+        axes[i].set_title(f"{col}", fontsize=12)
         axes[i].yaxis.set_major_locator(MaxNLocator(integer=True))
 
-        # Add the icon if available in icon_map
-        if key in icon_map:
-            add_icon(axes[i], icon_map[key], zoom=0.15, x=0.5, y=1.25)  # Move above the plot
+        # Convert x-axis ticks back to real scale
+        log_ticks = axes[i].get_xticks()
+        axes[i].set_xticks(log_ticks)
+        real_ticks = [f"{10 ** x:.0f}" for x in log_ticks]
+        axes[i].set_xticklabels(real_ticks)
 
-    # plt.tight_layout()
+        # Add an icon if needed
+        if "icon_map" in globals() and col in icon_map:
+            add_icon(axes[i], icon_map[col], zoom=0.15, x=0.5, y=1.25)
+
+    fig.suptitle(f"Length distribution of different errors - {class_name}", fontsize=16)
+    fig.supxlabel("Length of false pred (log10)", fontsize=14)
+    fig.supylabel("Frequency", fontsize=14)
+    # Add a single legend to the figure
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower left', ncol=len(unique_methods), fontsize=12)
+
+    plt.legend()
     plt.show()
-
 
 def add_icon(ax, icon_path, zoom=0.15, x=0.5, y=1.25):
     """
@@ -128,25 +136,6 @@ def add_icon(ax, icon_path, zoom=0.15, x=0.5, y=1.25):
 
     ab = AnnotationBbox(imagebox, (x, y), xycoords=ax.transAxes, frameon=False)
     ax.add_artist(ab)
-
-
-def plot_overall_erros():
-    reader = H5Reader(
-        path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/BEND/gene_finding.hdf5",
-        path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/augustus.bend.h5",
-    )
-
-    benchmark_results = benchmark_all(
-        reader,
-        "/home/benjaminkroeger/Documents/Master/MasterThesis/rack/data/predictions_in_bend_format/bend_test_set_ids.npy",
-    )
-
-    total_exons = benchmark_results.pop("total_gt_exons")
-    total_correct_pred = benchmark_results.pop("correct_pred_exons")
-
-    plot_error_bar_plot(benchmark_results)
-    plot_individual_error_lengths(benchmark_results)
-
 
 def compute_and_plot_one():
     reader = H5Reader(
@@ -177,135 +166,6 @@ def compute_and_plot_one():
 
     plot_pred_vs_gt(bend_annot[0], bend_annot[1])
 
-
-def plot_stacked_error_bar(error_dicts: list):
-    """
-    Given a list of dictionaries with error keys and their corresponding errors,
-    plot the total number of prediction errors as a stacked bar plot.
-
-    Args:
-        error_dicts: A list of dictionaries with error keys
-
-    Returns:
-        Plots a stacked bar plot
-    """
-    # Combine all dictionaries into a DataFrame
-    all_error_data = defaultdict(list)
-    benchmark_names = []
-    for i, error_dict in enumerate(error_dicts):
-        for key, value in error_dict.items():
-            if key == "name":
-                benchmark_names.append(value)
-                continue
-            all_error_data[key].append(len(value))
-
-    # Create DataFrame for error counts
-    error_df = pd.DataFrame(all_error_data, index=benchmark_names)
-
-    # Plot the stacked bar chart
-    error_df.plot(kind="barh", stacked=True, figsize=(12, 8))
-
-    # Adjust the left margin
-    plt.subplots_adjust(left=0.15)
-
-    # Get the current axes
-    ax = plt.gca()
-
-    # Annotate each bar with its total value
-    for i, total in enumerate(error_df.sum(axis=1)):
-        ax.annotate(
-            f"{int(total)}",  # Total value
-            (total, i),  # Positioning the text
-            ha="left",  # Align text to the left
-            va="center",  # Center vertically
-            fontsize=10,
-            color="black",
-            xytext=(5, 0),  # Offset text from the bar
-            textcoords="offset points",
-        )
-
-    plt.xlabel("Number of Errors")
-    plt.ylabel("Error Categories")
-    plt.show()
-
-
-def plot_exon_prediction_accuracy(result_dicts: list):
-    """
-    Plots the number of correctly predicted exons out of the total ground truth exons for multiple inputs using seaborn.
-
-    Args:
-        result_dicts: A list of dictionaries with "name", "total_gt_exons", and "correct_pred_exons".
-
-    Returns:
-        A bar plot where each bar shows the total ground truth exons, and the correctly predicted portion is highlighted.
-    """
-    # Create a DataFrame to store the data
-    data = {"name": [], "total_gt_exons": [], "correct_pred_exons": []}
-
-    for result_dict in result_dicts:
-        data["name"].append(result_dict["name"])
-        data["total_gt_exons"].append(sum(result_dict["total_gt_exons"]))
-        data["correct_pred_exons"].append(sum(result_dict["correct_pred_exons"]))
-
-    df = pd.DataFrame(data)
-
-    # Calculate the incorrectly predicted exons
-    df["incorrect_pred_exons"] = df["total_gt_exons"] - df["correct_pred_exons"]
-
-    # Set the color palette
-    sns.set_palette(["#2ca02c", "#d62728"])  # Correct: Green, Incorrect: Red
-
-    # Plot the stacked bar chart
-    plt.figure(figsize=(12, 5))
-    sns.barplot(x="total_gt_exons", y="name", data=df, label="Correctly predicted exons")
-    sns.barplot(x="incorrect_pred_exons", y="name", data=df, label="Incorrect predicted exons")
-
-    # Add annotations
-    for i, row in df.iterrows():
-        plt.text(
-            row["total_gt_exons"] + 1,
-            i,
-            f"{row['total_gt_exons']} total",
-            va="center",
-            ha="left",
-            color="black",
-        )
-
-    plt.xlabel("Number of Exons")
-    plt.ylabel("Sample")
-    plt.title("Exon Prediction Accuracy")
-    plt.legend(title="Exon Prediction")
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_multiple_benchmarks(path_to_gt: str, paths_to_benchmarks: list[str], path_to_seq_ids: str):
-    all_results = []
-
-    for results_path in paths_to_benchmarks:
-        reader = H5Reader(path_to_gt=path_to_gt, path_to_predictions=results_path)
-        benchmark_results = benchmark_all(reader=reader, path_to_ids=path_to_seq_ids)
-        benchmark_name = results_path.split("/")[-1].split(".")[0]
-        benchmark_results["name"] = benchmark_name
-        all_results.append(benchmark_results)
-
-    exon_summary_stats = []
-    for result_dict in all_results:
-        exon_summary_stats.append(
-            {
-                "name": result_dict["name"],
-                "total_gt_exons": result_dict.pop("total_gt_exons"),
-                "correct_pred_exons": result_dict.pop("correct_pred_exons"),
-            }
-        )
-
-    plot_stacked_error_bar(all_results)
-    plot_exon_prediction_accuracy(exon_summary_stats)
-
-    for result_dict in all_results:
-        plot_individual_error_lengths(result_dict)
-
-
 def compare_prediction_results(path_to_gt: str, paths_to_benchmarks: list[str], path_to_seq_ids: str, labels, classes, metrics):
     all_results = {}
 
@@ -334,9 +194,15 @@ def compare_prediction_results(path_to_gt: str, paths_to_benchmarks: list[str], 
         df_class_indel = benchmark_df[
             (benchmark_df['measured_class'] == class_.name) & (benchmark_df['metric_group'] == EvalMetrics.INDEL.name)].copy()
         plot_stacked_indel_bar(df_class_indel, class_.name)
-        def_class_section = benchmark_df[
+        plot_individual_error_lengths_from_df(df_class_indel,class_.name)
+
+        df_class_section = benchmark_df[
             (benchmark_df['measured_class'] == class_.name) & (benchmark_df['metric_group'] == EvalMetrics.SECTION.name)].copy()
-        plot_total_right_bar(def_class_section,class_.name)
+        plot_total_right_bar(df_class_section,class_.name)
+
+        df_ml_metrics = benchmark_df[
+            (benchmark_df['measured_class'] == class_.name) & (benchmark_df['metric_group'] == EvalMetrics.ML.name)].copy()
+        plot_ml_metrics(df_ml_metrics,class_.name)
 
 
 
@@ -402,6 +268,32 @@ def plot_total_right_bar(df_section: pd.DataFrame, class_name: str):
     plt.show()
 
 
+def plot_ml_metrics(df_ml_metrics: pd.DataFrame, class_name: str):
+
+
+    section_counts = df_ml_metrics.groupby(['method_name', 'metric_key'])['value'].apply(lambda x: x.iloc[0]).unstack(fill_value=0)
+    # section_counts.drop(columns=["got_all_right"],inplace=True)
+    section_counts_melt = section_counts.reset_index().melt(id_vars='method_name', var_name='metric', value_name='value')
+
+    plt.figure(figsize=(11, 6))
+    ax = sns.barplot(
+        data=section_counts_melt,
+        y="value",
+        x="metric",
+        hue='method_name'
+    )
+
+    # Add labels
+    for container in ax.containers:
+        ax.bar_label(container, label_type='edge', padding=3, fmt='%.3f')
+
+    plt.subplots_adjust(left=0.22)
+    plt.title(f"Correctly predicted sections Counts by Method - {class_name} (Total)")
+    plt.xlabel("Count")
+    plt.ylabel("Method Name")
+    plt.tight_layout()
+    plt.show()
+
 
 
 
@@ -417,7 +309,7 @@ if __name__ == "__main__":
         ],
         path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
         labels=BendLabels,
-        classes= [BendLabels.INTRON],
+        classes= [BendLabels.EXON,BendLabels.INTRON],
         metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML],
     )
-    compute_and_plot_one()
+    #compute_and_plot_one()
