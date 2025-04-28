@@ -1,10 +1,11 @@
 [project]
-name = "benchmark"
-version = "0.1.0"
-description = "Add your description here"
+name = "dna-segmentation-benchmark"
+version = "0.0.1"
+description = "A collection of different evaluators for dna nucleodtide level labeling"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "biopython>=1.85",
     "bokeh>=3.7.0",
     "h5py>=3.13.0",
     "matplotlib>=3.10.1",

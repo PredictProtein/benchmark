@@ -191,7 +191,7 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
         ),
         pytest.param(
             np.array([[8, 8, 8, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 8, 8],
-                              [8, 8, 8, 0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 8, 8]]),
+                      [8, 8, 8, 0, 0, 0, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 8, 8]]),
             [BendLabels.EXON, BendLabels.DF, BendLabels.AF],
             [EvalMetrics.INDEL],
             {
@@ -234,9 +234,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             },
             id="splice_sites_detection",
         ),
-pytest.param(
+        pytest.param(
             np.array([[8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8],
-                              [8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8]]),
+                      [8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8]]),
             [BendLabels.INTRON],
             [EvalMetrics.SECTION],
             {
@@ -250,6 +250,20 @@ pytest.param(
             },
             id="Intron_section_test",
         ),
+        pytest.param(
+            np.array([[8, 8, 8, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 0, 0],
+                      [0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 8, 8]]),
+            [BendLabels.EXON],
+            [EvalMetrics.FRAMESHIFT],
+            {
+                "EXON": {
+                    "FRAMESHIFT": {
+                        "gt_frames": np.array([np.inf] * 3 + [0, 0] + [np.inf] * 8 + [0, 0, 0, 0] + [np.inf] * 4)
+                    }
+                }
+            },
+            id="Frameshift_test",
+        ),
     ],
 )
 def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_errors: dict):
@@ -261,6 +275,7 @@ def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_
         EvalMetrics.INDEL: _eval_indel_metrics,
         EvalMetrics.SECTION: _eval_section_metrics,
         EvalMetrics.ML: _eval_ml_metrics,
+        EvalMetrics.FRAMESHIFT: _eval_frameshift_metrics
     }
 
     class_keys = benchmark_results.keys()
@@ -272,26 +287,10 @@ def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_
         for metric in metrics:
             metric_eval_mapping[metric](expected_results[metric.name], class_results[metric.name])
 
-
-#def test_benchmark_multiple(gt_pred_arrays: list[np.ndarray], classes, metrics, expected_errors: dict):
-#    benchmark_results = benchmark_gt_vs_pred_single(
-#        gt_labels=gt_pred_array[0], pred_labels=gt_pred_array[1], labels=BendLabels, classes=classes, metrics=metrics
-#    )
-
-    metric_eval_mapping = {
-        EvalMetrics.INDEL: _eval_indel_metrics,
-        EvalMetrics.SECTION: _eval_section_metrics,
-        EvalMetrics.ML: _eval_ml_metrics,
-    }
-
-    class_keys = benchmark_results.keys()
-    assert class_keys == expected_errors.keys(), "The benchmark keys do not match the expected keys"
-
-    for class_key in class_keys:
-        class_results = benchmark_results[class_key]
-        expected_results = expected_errors[class_key]
-        for metric in metrics:
-            metric_eval_mapping[metric](expected_results[metric.name], class_results[metric.name])
+    # def test_benchmark_multiple(gt_pred_arrays: list[np.ndarray], classes, metrics, expected_errors: dict):
+    #    benchmark_results = benchmark_gt_vs_pred_single(
+    #        gt_labels=gt_pred_array[0], pred_labels=gt_pred_array[1], labels=BendLabels, classes=classes, metrics=metrics
+    #    )
 
 
 def _eval_section_metrics(expected_section_metrics, computed_section_metrics):
@@ -321,3 +320,13 @@ def _eval_indel_metrics(expected_indel, computed_indel):
 def _eval_ml_metrics(expected_ml, computed_ml):
     for metric_key in expected_ml:
         assert math.isclose(expected_ml[metric_key], computed_ml[metric_key], abs_tol=0.001, rel_tol=0.011), f"The {metric_key} values do not match"
+
+
+def _eval_frameshift_metrics(expected_frameshift_metrics, computed_frameshift_metrics):
+
+    assert set(expected_frameshift_metrics.keys()) == set(computed_frameshift_metrics.keys()), "the keys dont match"
+
+    for metric in expected_frameshift_metrics.keys():
+        assert (expected_frameshift_metrics[metric] == computed_frameshift_metrics[metric]).all(), " Errrrr not written yet"
+
+    print("hi")

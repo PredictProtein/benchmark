@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 import numpy as np
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from PlotPredictions import plot_pred_vs_gt
+from PlotPredictions import plot_pred_vs_gt_enhanced
 from evaluate_predictors import (
     benchmark_all,
     H5Reader,
@@ -140,18 +140,20 @@ def add_icon(ax, icon_path, zoom=0.15, x=0.5, y=1.25):
 def compute_and_plot_one():
     reader = H5Reader(
         path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
-        path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
+        path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
     )
 
-    bend_id = "5491"
+    bend_id = "23"
     bend_annot, ben_anot_rev = reader.get_gt_pred_pair(bend_id)
     if (np.array(bend_annot) == 8).all():
         bend_annot = ben_anot_rev
+        print("took reverse")
     benchmark_results = benchmark_gt_vs_pred_single(
         bend_annot[0],
         bend_annot[1],
         labels=BendLabels,
-        classes=[BendLabels.EXON, BendLabels.INTRON],
+        classes=[BendLabels.EXON],
+        metrics=[EvalMetrics.INDEL,EvalMetrics.FRAMESHIFT]
     )
     benchmark_results["name"] = f"sigle_test{bend_id}"
     print(benchmark_results)
@@ -164,7 +166,7 @@ def compute_and_plot_one():
     # plot_error_bar_plot(benchmark_results)
     # plot_individual_error_lengths(benchmark_results)
 
-    plot_pred_vs_gt(bend_annot[0], bend_annot[1])
+    plot_pred_vs_gt_enhanced(bend_annot[0], bend_annot[1],reading_frame=benchmark_results["EXON"]["FRAMESHIFT"]["gt_frames"])
 
 def compare_prediction_results(path_to_gt: str, paths_to_benchmarks: list[str], path_to_seq_ids: str, labels, classes, metrics):
     all_results = {}
@@ -176,7 +178,6 @@ def compare_prediction_results(path_to_gt: str, paths_to_benchmarks: list[str], 
         all_results[benchmark_name] = benchmark_results
 
     # parse the results into a df in long format
-    benchmark_df = pd.DataFrame(columns=["method_name","measured_class","metric_group","metric_key","value"])
     data = []
     for method_name, measured_classes in all_results.items():
         for measured_class, metric_grouping in measured_classes.items():
@@ -203,6 +204,10 @@ def compare_prediction_results(path_to_gt: str, paths_to_benchmarks: list[str], 
         df_ml_metrics = benchmark_df[
             (benchmark_df['measured_class'] == class_.name) & (benchmark_df['metric_group'] == EvalMetrics.ML.name)].copy()
         plot_ml_metrics(df_ml_metrics,class_.name)
+
+        df_frame_shift_metrics = benchmark_df[
+            (benchmark_df['measured_class'] == class_.name) & (benchmark_df['metric_group'] == EvalMetrics.FRAMESHIFT.name)].copy()
+        plot_frame_percentage(df_frame_shift_metrics)
 
 
 
@@ -267,6 +272,47 @@ def plot_total_right_bar(df_section: pd.DataFrame, class_name: str):
     plt.tight_layout()
     plt.show()
 
+def plot_frame_percentage(df_frame_shift_metrics):
+
+    only_frame_data = df_frame_shift_metrics[df_frame_shift_metrics['metric_key'] == 'gt_frames']
+
+    def compute_frame_percentages_long(frame_lists):
+        flat = np.concatenate(frame_lists.values)
+        flat = flat[np.isfinite(flat)].astype(int)  # remove np.inf and ensure int
+        counts = np.bincount(flat, minlength=3)[:3]
+        total = counts.sum()
+        percentages = (counts / total * 100) if total > 0 else np.zeros(3)
+        return pd.DataFrame({
+            'frame': ["Ground Truth frame", "Frame shift 1", "Frame shift 2"],
+            'percentage': percentages
+        })
+
+    frame_percentages_long = (
+        only_frame_data
+        .groupby(['method_name', 'metric_key'])['value']
+        .apply(compute_frame_percentages_long)
+        .reset_index(level=2, drop=True)  # remove multiindex from .apply
+        .reset_index()
+    )
+
+    plt.figure(figsize=(11, 6))
+    ax = sns.barplot(
+        data=frame_percentages_long,
+        y="percentage",
+        x="frame",
+        hue='method_name'
+    )
+
+    for container in ax.containers:
+        ax.bar_label(container, label_type='edge', padding=3, fmt='%.3f')
+
+    plt.subplots_adjust(left=0.22)
+    plt.title(f"Percentages of which frame a correctly predicted codon is in")
+    #plt.xlabel("Count")
+    #plt.ylabel("Method Name")
+    plt.tight_layout()
+    plt.show()
+
 
 def plot_ml_metrics(df_ml_metrics: pd.DataFrame, class_name: str):
 
@@ -300,16 +346,16 @@ def plot_ml_metrics(df_ml_metrics: pd.DataFrame, class_name: str):
 
 
 if __name__ == "__main__":
-    compare_prediction_results(
-        path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
-        paths_to_benchmarks=[
-            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
-            # "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
-            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
-        ],
-        path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
-        labels=BendLabels,
-        classes= [BendLabels.EXON,BendLabels.INTRON],
-        metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML],
-    )
-    #compute_and_plot_one()
+    #compare_prediction_results(
+    #    path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
+    #    paths_to_benchmarks=[
+    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
+    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
+    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
+    #    ],
+    #    path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
+    #    labels=BendLabels,
+    #    classes= [BendLabels.EXON,BendLabels.INTRON],
+    #    metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML,EvalMetrics.FRAMESHIFT],
+    #)
+    compute_and_plot_one()
