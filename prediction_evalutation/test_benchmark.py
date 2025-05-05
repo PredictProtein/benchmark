@@ -21,11 +21,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             {
                 "EXON": {
                     "INDEL": {
-                        "left_extensions": [np.array([0, 1, 2])],
-                        "right_extensions": [np.array([17, 18])],
+                        "5_prime_extensions": [np.array([0, 1, 2])],
+                        "3_prime_extensions": [np.array([17, 18])],
                         "whole_insertions": [np.array([8, 9, 10, 11])],
-                        "left_deletions": [np.array([12])],
-                        "right_deletions": [np.array([5, 6, 7])],
+                        "5_prime_deletions": [np.array([12])],
+                        "3_prime_deletions": [np.array([5, 6, 7])],
                         "whole_deletions": [np.array([19, 20])],
                         "split": [],
                         "joined": []
@@ -46,11 +46,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             {
                 "EXON": {
                     "INDEL": {
-                        "left_extensions": [],
-                        "right_extensions": [],
+                        "5_prime_extensions": [],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [np.array([0, 1, 2])],
-                        "right_deletions": [np.array([8, 9])],
+                        "5_prime_deletions": [np.array([0, 1, 2])],
+                        "3_prime_deletions": [np.array([8, 9])],
                         "whole_deletions": [],
                         "split": [],
                         "joined": [np.array([4, 5, 6])],
@@ -76,11 +76,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             {
                 "EXON": {
                     "INDEL": {
-                        "left_extensions": [],
-                        "right_extensions": [],
+                        "5_prime_extensions": [],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [],
-                        "right_deletions": [],
+                        "5_prime_deletions": [],
+                        "3_prime_deletions": [],
                         "whole_deletions": [],
                         "split": [],
                         "joined": [],
@@ -106,11 +106,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             {
                 "EXON": {
                     "INDEL": {
-                        "left_extensions": [],
-                        "right_extensions": [],
+                        "5_prime_extensions": [],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [],
-                        "right_deletions": [],
+                        "5_prime_deletions": [],
+                        "3_prime_deletions": [],
                         "whole_deletions": [],
                         "split": [],
                         "joined": [],
@@ -136,11 +136,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             {
                 "INTRON": {
                     "INDEL": {
-                        "left_extensions": [np.array([4])],
-                        "right_extensions": [],
+                        "5_prime_extensions": [np.array([4])],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [],
-                        "right_deletions": [np.array([7, 8])],
+                        "5_prime_deletions": [],
+                        "3_prime_deletions": [np.array([7, 8])],
                         "whole_deletions": [],
                         "split": [],
                         "joined": [],
@@ -153,11 +153,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                 },
                 "EXON": {
                     "INDEL": {
-                        "left_extensions": [],
-                        "right_extensions": [],
+                        "5_prime_extensions": [],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [],
-                        "right_deletions": [np.array([4])],
+                        "5_prime_deletions": [],
+                        "3_prime_deletions": [np.array([4])],
                         "whole_deletions": [np.array([9, 10])],
                         "split": [],
                         "joined": [],
@@ -197,11 +197,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             {
                 "EXON": {
                     "INDEL": {
-                        "left_extensions": [np.array([13])],
-                        "right_extensions": [],
+                        "5_prime_extensions": [np.array([13])],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [],
-                        "right_deletions": [],
+                        "5_prime_deletions": [],
+                        "3_prime_deletions": [],
                         "whole_deletions": [],
                         "split": [],
                         "joined": [],
@@ -209,11 +209,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                 },
                 "DF": {
                     "INDEL": {
-                        "left_extensions": [],
-                        "right_extensions": [],
+                        "5_prime_extensions": [],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [],
-                        "right_deletions": [np.array([7])],
+                        "5_prime_deletions": [],
+                        "3_prime_deletions": [np.array([7])],
                         "whole_deletions": [],
                         "split": [],
                         "joined": [],
@@ -221,11 +221,11 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                 },
                 "AF": {
                     "INDEL": {
-                        "left_extensions": [],
-                        "right_extensions": [],
+                        "5_prime_extensions": [],
+                        "3_prime_extensions": [],
                         "whole_insertions": [],
-                        "left_deletions": [],
-                        "right_deletions": [np.array([13])],
+                        "5_prime_deletions": [],
+                        "3_prime_deletions": [np.array([13])],
                         "whole_deletions": [],
                         "split": [],
                         "joined": [],
@@ -267,10 +267,13 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
     ],
 )
 def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_errors: dict):
+
+    # run the benchmark with the test input and the provided arguments
     benchmark_results = benchmark_gt_vs_pred_single(
         gt_labels=gt_pred_array[0], pred_labels=gt_pred_array[1], labels=BendLabels, classes=classes, metrics=metrics
     )
 
+    # define which functions shall be used to evaluate the different metric groups
     metric_eval_mapping = {
         EvalMetrics.INDEL: _eval_indel_metrics,
         EvalMetrics.SECTION: _eval_section_metrics,
@@ -278,30 +281,28 @@ def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_
         EvalMetrics.FRAMESHIFT: _eval_frameshift_metrics
     }
 
+    # check that all the requested metric groups were computed
     class_keys = benchmark_results.keys()
     assert class_keys == expected_errors.keys(), "The benchmark keys do not match the expected keys"
 
+    # trigger evaluations of each metric group
     for class_key in class_keys:
         class_results = benchmark_results[class_key]
         expected_results = expected_errors[class_key]
         for metric in metrics:
             metric_eval_mapping[metric](expected_results[metric.name], class_results[metric.name])
 
-    # def test_benchmark_multiple(gt_pred_arrays: list[np.ndarray], classes, metrics, expected_errors: dict):
-    #    benchmark_results = benchmark_gt_vs_pred_single(
-    #        gt_labels=gt_pred_array[0], pred_labels=gt_pred_array[1], labels=BendLabels, classes=classes, metrics=metrics
-    #    )
-
 
 def _eval_section_metrics(expected_section_metrics, computed_section_metrics):
-    assert set(expected_section_metrics.keys()) == set(computed_section_metrics.keys()), "the keys dont match"
+    assert set(expected_section_metrics.keys()) == set(computed_section_metrics.keys()), "The keys for the section metrics dont match"
 
-    for section_metrics in computed_section_metrics.keys():
-        assert expected_section_metrics[section_metrics] == computed_section_metrics[section_metrics], " Errrrr not written yet"
+    for section_metric in computed_section_metrics.keys():
+        assert expected_section_metrics[section_metric] == computed_section_metrics[
+            section_metric], f"The  computed output of {section_metric} does not match the expected output"
 
 
 def _eval_indel_metrics(expected_indel, computed_indel):
-    assert set(expected_indel.keys()) == set(computed_indel.keys()), "dweweweweewe"
+    assert set(expected_indel.keys()) == set(computed_indel.keys()), "The keys for the indel metrics dont match"
 
     for metric in expected_indel.keys():
         computed = computed_indel[metric]
@@ -323,10 +324,8 @@ def _eval_ml_metrics(expected_ml, computed_ml):
 
 
 def _eval_frameshift_metrics(expected_frameshift_metrics, computed_frameshift_metrics):
-
-    assert set(expected_frameshift_metrics.keys()) == set(computed_frameshift_metrics.keys()), "the keys dont match"
+    assert set(expected_frameshift_metrics.keys()) == set(computed_frameshift_metrics.keys()), "The keys for the frameshift metrics dont match."
 
     for metric in expected_frameshift_metrics.keys():
-        assert (expected_frameshift_metrics[metric] == computed_frameshift_metrics[metric]).all(), " Errrrr not written yet"
+        assert (expected_frameshift_metrics[metric] == computed_frameshift_metrics[metric]).all(), "The computed frame assignment does not match the expected frame assignment."
 
-    print("hi")

@@ -30,8 +30,7 @@ class EvalMetrics(Enum):
     _MLMULTIPLE = 3  # allows to compute mcc recall ... across multiple seqs with different averaging
     FRAMESHIFT = 4
 
-
-default_metrics = [EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML]
+default_metrics = [EvalMetrics.SECTION, EvalMetrics.ML]
 
 
 class H5Reader:
@@ -86,19 +85,20 @@ def benchmark_gt_vs_pred_single(
 ) -> dict[str, dict[str, list[np.ndarray]]]:
     """
     This method compares the ground truth annotation of a sequence with the predicted annotation of a sequence. It identifies
-    5'-exon Deletions/Insertions, 3`-exon Deletions/Insertions, complete exon Deletions/Insertions, as well as inter exon Deletions and
+    5'-exon Deletions/Insertions, 3`-exon Deletions/Insertions, complete exon Deletions/Insertions, as well as inter-exon deletions and
     falsely joined exons.
     Args:
         gt_labels: The gt annotations
         pred_labels: The predicted annotations
-        metrics: The metrics to use
-        labels: The ground truth labels
-        classes: hihi
+        labels: An enum class containing all possible labels.
+        classes: For which the metrics shall be computed, e.g. just for exons
+        metrics: The benchmark metrics that should be computed.
 
     Returns:
-        8 Lists with the indices of the respective Insertions or deletions wrapped in a dict
+        A dictionary with the results for each requested metric
     """
 
+    # if no specific metrics are requested set them to the default
     if metrics is None:
         metrics = default_metrics
 
@@ -134,33 +134,33 @@ def benchmark_gt_vs_pred_single(
 
         if EvalMetrics.INDEL in metrics:
             # Now the insertions and deletions need to be checked if they are actually border extensions or deletions
-            grouped_exon_left_extensions, grouped_exon_right_extensions, joined_exons, grouped_whole_exon_insertions = (
-                _classify_exon_mismatches(
+            grouped_5_prime_extensions, grouped_3_prime_extensions, joined, grouped_whole_insertions = (
+                _classify_mismatches(
                     grouped_indices=grouped_insertion_indices, gt_pred_arr=arr, label_class=dna_label_class
                 )
             )
 
-            grouped_exon_left_deletions, grouped_exon_right_deletions, split_exons, grouped_whole_exon_deletions = (
-                _classify_exon_mismatches(
+            grouped_5_prime_deletions, grouped_3_prime_deletions, split, grouped_whole_deletions = (
+                _classify_mismatches(
                     grouped_indices=grouped_deletion_indices, gt_pred_arr=arr, label_class=dna_label_class
                 )
             )
 
             indel_results = {
-                "left_extensions": grouped_exon_left_extensions,
-                "right_extensions": grouped_exon_right_extensions,
-                "whole_insertions": grouped_whole_exon_insertions,
-                "joined": joined_exons,
-                "left_deletions": grouped_exon_left_deletions,
-                "right_deletions": grouped_exon_right_deletions,
-                "whole_deletions": grouped_whole_exon_deletions,
-                "split": split_exons,
+                "5_prime_extensions": grouped_5_prime_extensions,
+                "3_prime_extensions": grouped_3_prime_extensions,
+                "whole_insertions": grouped_whole_insertions,
+                "joined": joined,
+                "5_prime_deletions": grouped_5_prime_deletions,
+                "3_prime_deletions": grouped_3_prime_deletions,
+                "whole_deletions": grouped_whole_deletions,
+                "split": split,
             }
 
             metric_results[dna_label_class.name][EvalMetrics.INDEL.name] = indel_results
 
         if EvalMetrics.SECTION in metrics:
-            total_gt_exons, correct_pred_exons, got_all_right = _get_total_correct_exons(
+            total_gt_exons, correct_pred_exons, got_all_right = _get_total_correct_sections(
                 grouped_gt_exon_indices, arr=arr, dna_label_class=dna_label_class
             )
             metric_results[dna_label_class.name][EvalMetrics.SECTION.name] = {
@@ -236,26 +236,22 @@ def benchmark_gt_vs_pred_multiple(
     return results
 
 
-def _classify_exon_mismatches(
+def _classify_mismatches(
         grouped_indices: list[np.ndarray], gt_pred_arr: np.ndarray, label_class
 ) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
     """
-        Once the insertions or deletions are identified they are sorted into 4 categories:
-            - 3`-
-            - 5`-
-            - independent
-            - Exon excision (Deletions) / Exon concatenations (Insertions)
-    Args:
-        grouped_indices: The array of grouped together insertion or deletions indices
-        gt_pred_arr: The array with the ground truth and predicted annotations
+        This method sorts the mismatches into 4 categories depending on whether deletion or insertions are evaluated:
+        - 5'-extensions / deletions
+        - 3'-extensions / deletions
+        - joins / splits
+        - insertions / deletions
 
-    Returns:
 
     """
-    exon_on_left_of_mismatch = []  # left of the missmatch there is and exon both in predicted and ground truth
-    exon_on_right_of_mismatch = []  # right of the missmatch there is and exon both in predicted and ground truth
-    exon_on_both_of_mismatch = []  # on both sides of the missmatch there is and exon both in predicted and ground truth
-    no_exon_next_mismatch = []  # on none of the sides of the missmatch there is and exon both in predicted and ground truth
+    mismatch_on_5_prime_of_gt = []  # left of the missmatch there is and exon both in predicted and ground truth
+    mismatch_on_3_prime_of_gt = []  # right of the missmatch there is and exon both in predicted and ground truth
+    target_on_both_of_mismatch = []  # on both sides of the missmatch there is and exon both in predicted and ground truth
+    no_target_next_mismatch = []  # on none of the sides of the missmatch there is and exon both in predicted and ground truth
 
     # iterate over all mismatches
     for mismatch in grouped_indices:
@@ -265,13 +261,17 @@ def _classify_exon_mismatches(
         last_deletion_index = mismatch[-1]
         first_deletion_index = mismatch[0]
 
-        # conditions for there being an exon in both gt and pred
-        exon_on_the_left = (
+        # condition that checks if in the 3' direction of the mismatch a correct prediction of the target class was made
+        # If so the prediction is an extension into the 5' direction of the actual target label
+        target_on_mismatch_3_prime_end = (
                 int(gt_pred_arr[0, last_deletion_index + 1])
                 == int(gt_pred_arr[1, last_deletion_index + 1])
                 == label_class.value
         )
-        exon_on_the_right = (
+
+        # condition that checks if in the 5' direction of the mismatch a correct prediction of the target class was made
+        # If so the prediction is an extension into the 3' direction of the actual target label
+        target_on_mismatch_5_prime_end = (
                 int(gt_pred_arr[0, first_deletion_index - 1])
                 == int(gt_pred_arr[1, first_deletion_index - 1])
                 == label_class.value
@@ -279,54 +279,71 @@ def _classify_exon_mismatches(
 
         # sort the mismatches based on what they have ahead behind them
         #  - 1 accounts for the initially added 8 noncoding labels that inflated the indices by 1
-        if exon_on_the_left and exon_on_the_right:
-            exon_on_both_of_mismatch.append(mismatch - 1)
+        if target_on_mismatch_3_prime_end and target_on_mismatch_5_prime_end:
+            target_on_both_of_mismatch.append(mismatch - 1)
             continue
 
-        if exon_on_the_left:
-            exon_on_left_of_mismatch.append(mismatch - 1)
+        if target_on_mismatch_3_prime_end:
+            mismatch_on_5_prime_of_gt.append(mismatch - 1)
             continue
 
-        if exon_on_the_right:
-            exon_on_right_of_mismatch.append(mismatch - 1)
+        if target_on_mismatch_5_prime_end:
+            mismatch_on_3_prime_of_gt.append(mismatch - 1)
             continue
 
-        no_exon_next_mismatch.append(mismatch - 1)
+        if not target_on_mismatch_3_prime_end and not target_on_mismatch_5_prime_end:
+            no_target_next_mismatch.append(mismatch - 1)
+            continue
+
+        raise Exception("The mismatch was not able to be categorized, this should never happen and indicates a bug in the code!")
 
     return (
-        exon_on_left_of_mismatch,
-        exon_on_right_of_mismatch,
-        exon_on_both_of_mismatch,
-        no_exon_next_mismatch,
+        mismatch_on_5_prime_of_gt,
+        mismatch_on_3_prime_of_gt,
+        target_on_both_of_mismatch,
+        no_target_next_mismatch,
     )
 
 
-def _get_total_correct_exons(grouped_gt_exon_indices: list[np.ndarray], arr: np.array, dna_label_class):
+def _get_total_correct_sections(grouped_gt_section_indices: list[np.ndarray], arr: np.array, dna_label_class):
+    """
+    This method check how many gt sections of a traget class were correctly predicted.
+    :param grouped_gt_section_indices:
+    :param arr:
+    :param dna_label_class:
+    :return:
+    """
     true_pred = 0
-    total_exons = len(grouped_gt_exon_indices)
-    got_all_right = False
-    for exon in grouped_gt_exon_indices:
-        if exon.size == 0:
-            assert np.sum([x.shape for x in grouped_gt_exon_indices]) == 0, (
-                "An empty exon was detected but other exons have content WTF"
+    total_sections = len(grouped_gt_section_indices)
+    got_all_right = False  # stores if all sections of a sequence were identified correctly
+
+    for section in grouped_gt_section_indices:
+        if section.size == 0:
+            # the grouping some times produces 0 size array aritifacts so this is a sanity check
+            assert np.sum([x.shape for x in grouped_gt_section_indices]) == 0, (
+                "An empty exon was detected but other exons have content"
             )
             return 0, 0, None
-        left_boundary_index = exon[0] - 1
-        right_boundary_index = exon[-1] + 1
-        modified_exon = np.concatenate(([left_boundary_index], exon, [right_boundary_index]))
+        # get the nucleotieds bordering the section
+        left_boundary_index = section[0] - 1
+        right_boundary_index = section[-1] + 1
+
+        modified_exon = np.concatenate(([left_boundary_index], section, [right_boundary_index]))
         # an exon is only correctly predicted if its boundaries are predicted correctly as well
         # if (arr[0, modified_exon] == arr[1, modified_exon]).all():
         #    true_pred += 1
 
-        # an exon is correct if the left and right exon boundaries are predicted to sth other than exon
-        if (arr[0, exon] == arr[1, exon]).all():
+        # a section is correct if the left and right exon boundaries are predicted to sth other than the target
+        # check if the predicted labels match the gt labels for the selected section
+        if (arr[0, section] == arr[1, section]).all():
+            # check if the borders are different from the traget in the prediction
             if arr[1, left_boundary_index] != dna_label_class.value and arr[1, right_boundary_index] != dna_label_class.value:
                 true_pred += 1
 
-    if total_exons == true_pred:
+    if total_sections == true_pred:
         got_all_right = True
 
-    return total_exons, true_pred, got_all_right
+    return total_sections, true_pred, got_all_right
 
 
 def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, target_class: dna_class_label_enum) -> dict:
@@ -343,7 +360,7 @@ def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, targ
         dict: A dictionary containing the computed statistics (mcc, recall, precision, specificity).
     """
     if target_class.value not in gt_labels:
-        return {"mcc": [], "recall": [], "precision": [], "specificity": [], "f1":f1}
+        return {"mcc": [], "recall": [], "precision": [], "specificity": [], "f1":[]}
 
     binary_gt = np.where(gt_labels == target_class.value, 1, 0)
     binary_pred = np.where(pred_labels == target_class.value, 1, 0)
