@@ -342,7 +342,7 @@ def plot_section_metrics_bar(df_section_metrics: pd.DataFrame, class_name: str):
     # Position legend outside the plot
     plt.legend(title="Metric Type", bbox_to_anchor=(1.02, 1), loc='upper left')
     # Use tight_layout to make space for the legend
-    plt.tight_layout(rect=(0, 0, 0.85, 1)) # Adjust rect to make space on the right for legend
+    plt.tight_layout() # Adjust rect to make space on the right for legend
     plt.show()
 
 
@@ -406,7 +406,7 @@ def plot_frameshift_percentage_bar(df_frameshift_metrics: pd.DataFrame):
     plt.xlabel("Reading Frame", fontsize=12)
     plt.ylabel("Percentage of Codons", fontsize=12)
     plt.legend(title="Method Name", bbox_to_anchor=(1.02, 1), loc='upper left')
-    plt.tight_layout(rect=[0, 0, 0.85, 1])  # Adjust for legend
+    plt.tight_layout()  # Adjust for legend
     plt.show()
 
 
@@ -447,7 +447,7 @@ def plot_ml_metrics_bar(df_ml_metrics: pd.DataFrame, class_name: str):
     plt.ylabel("Score", fontsize=12)
     plt.ylim(0, 1.05)  # ML metrics usually 0-1
     plt.legend(title="Method Name", bbox_to_anchor=(1.02, 1), loc='upper left')
-    plt.tight_layout(rect=[0, 0, 0.85, 1])  # Adjust for legend
+    plt.tight_layout()  # Adjust for legend
     plt.show()
 
 
