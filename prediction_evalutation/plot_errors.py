@@ -167,7 +167,7 @@ def plot_individual_error_lengths_histograms(df_indel_lengths: pd.DataFrame, cla
         ax.set_xticks(log_ticks)  # Set them first
         real_ticks = [f"{10 ** x:.0f}" if np.isfinite(x) else "" for x in log_ticks]
         ax.set_xticklabels(real_ticks)
-        ax.set_xlabel("Length")  # Individual x-labels
+        ax.set_xlabel("Length (log scaled)")  # Individual x-labels
 
         if error_type in ICON_MAP:
             add_icon_to_ax(ax, ICON_MAP[error_type], zoom=0.18, y_rel_pos=1.35)  # Adjusted y_rel_pos
@@ -250,46 +250,99 @@ def plot_stacked_indel_counts_bar(df_indel_counts: pd.DataFrame, class_name: str
 
 def plot_section_metrics_bar(df_section_metrics: pd.DataFrame, class_name: str):
     """
-    Plots a grouped bar chart for section-based metrics (e.g., correctly predicted sections).
+    Plots a 100% stacked horizontal bar chart for section-based metrics,
+    showing the percentage of 'correct_pred' sections out of 'total_gt' sections for each method.
+    The 'Correctly Predicted' portion is on the left. Uses Matplotlib for stacking.
 
     Args:
         df_section_metrics: DataFrame with columns ['method_name', 'metric_key', 'value'].
                             'value' should be a numerical count or sum for the metric.
+                            Requires 'total_gt' and 'correct_pred' metrics.
         class_name: The name of the class (e.g., "EXON") for the plot title.
     """
     if df_section_metrics.empty:
         print(f"No section metrics data to plot for class {class_name}.")
         return
 
+    # Aggregate counts for 'total_gt' and 'correct_pred' metrics
     # Assumes 'value' is a single numerical value or a list that should be summed.
-    # If 'value' is already a sum/count, .sum() on a single number is fine. If list, it sums elements.
     section_counts = df_section_metrics.groupby(['method_name', 'metric_key'])['value'].apply(
-        lambda x: sum(x.iloc[0]) if not x.empty and isinstance(x.iloc[0], list) else (x.iloc[0] if not x.empty else 0)
+        lambda x: sum(x.iloc[0]) if not x.empty and isinstance(x.iloc[0], (list, np.ndarray)) else (x.iloc[0] if not x.empty else 0)
     ).unstack(fill_value=0)
 
-    # Example: if "got_all_right" is a metric key that you want to exclude from this particular plot
-    if "got_all_right" in section_counts.columns:
-        section_counts = section_counts.drop(columns=["got_all_right"], errors='ignore')
+    plt.figure(figsize=DEFAULT_FIG_SIZE)
+    ax = sns.barplot(data=section_counts, y="method_name", x="got_all_right")
+    for container in ax.containers:
+        ax.bar_label(container, label_type='edge', fmt='%d', padding=5)
+    plt.title("Total number of genes where all sections were correctly predicted - " + class_name, fontsize=16)
+    plt.show()
 
-    if section_counts.empty or section_counts.shape[1] == 0:
-        print(f"No section metrics data to plot after filtering for class {class_name}.")
+    # Ensure 'total_gt' and 'correct_pred' columns exist
+    if 'total_gt' not in section_counts.columns or 'correct_pred' not in section_counts.columns:
+        print(f"Required metrics ('total_gt' and 'correct_pred') not found in data for class {class_name}.")
         return
 
-    section_counts_melt = section_counts.reset_index().melt(
-        id_vars='method_name', var_name='Metric Type', value_name='Count'
-    )
+    # Calculate percentages
+    # Handle division by zero if 'total_gt' is 0
+    section_counts['correct_percentage'] = (section_counts['correct_pred'] / section_counts['total_gt']) * 100
+    section_counts['incorrect_percentage'] = 100 - section_counts['correct_percentage']
 
+    # Handle cases where total_gt is 0, resulting in NaN percentages
+    section_counts[['correct_percentage', 'incorrect_percentage']] = section_counts[['correct_percentage', 'incorrect_percentage']].fillna(0)
+
+    # Sort by correct percentage to potentially order methods by performance (optional)
+    section_counts = section_counts.sort_values(by='correct_percentage', ascending=False)
+
+    methods = section_counts.index.tolist()
+    correct_percentages = section_counts['correct_percentage'].tolist()
+    incorrect_percentages = section_counts['incorrect_percentage'].tolist()
+
+    # --- Plotting the 100% Stacked Horizontal Bar Chart using Matplotlib ---
     plt.figure(figsize=DEFAULT_FIG_SIZE)
-    ax = sns.barplot(data=section_counts_melt, x="Count", y="method_name", hue='Metric Type', orient='h')
+    ax = plt.gca() # Get current axes
 
-    for container in ax.containers:
-        ax.bar_label(container, label_type='edge', padding=5, fmt='%d')
+    bar_height = 0.6 # Height of the bars
 
-    plt.title(f"Section-based Metrics - {class_name}", fontsize=16)
-    plt.xlabel("Count", fontsize=12)
+    # Use a Seaborn palette for colors
+    colors = sns.color_palette('pastel') # Or any other Seaborn palette
+
+    # Plot 'Correctly Predicted' bars (on the left)
+    correct_bars = ax.barh(methods, correct_percentages, height=bar_height, label='Correctly Predicted', color=colors[2]) # Using a color from the palette
+
+    # Plot 'Incorrectly Predicted / Missed GT' bars (stacked on the right)
+    incorrect_bars = ax.barh(methods, incorrect_percentages, height=bar_height, label='Incorrectly Predicted / Missed GT', left=correct_percentages, color=colors[3]) # Using another color
+
+
+    # Add percentage labels to the bars
+    # Labels for 'Correctly Predicted' bars
+    for bar in correct_bars:
+        width = bar.get_width()
+        if width > 0.5: # Only label if the segment has visible width
+            ax.text(bar.get_x() + width / 2, bar.get_y() + bar.get_height()/2, f'{width:.1f}%',
+                    va='center', ha='center', color='black', fontsize=9)
+
+    # Labels for 'Incorrectly Predicted / Missed GT' bars
+    for bar in incorrect_bars:
+        width = bar.get_width()
+        if width > 0.5: # Only label if the segment has visible width
+            ax.text(bar.get_x() + width / 2, bar.get_y() + bar.get_height()/2, f'{width:.1f}%',
+                    va='center', ha='center', color='black', fontsize=9)
+
+
+    # Set x-axis limit to 100%
+    ax.set_xlim(0, 100)
+
+    # Set y-axis labels
+    ax.set_yticks(np.arange(len(methods)))
+    ax.set_yticklabels(methods)
+
+    plt.title(f"Percentage of Correctly Predicted Sections - {class_name}", fontsize=16)
+    plt.xlabel("Percentage (%)", fontsize=12)
     plt.ylabel("Method Name", fontsize=12)
+    # Position legend outside the plot
     plt.legend(title="Metric Type", bbox_to_anchor=(1.02, 1), loc='upper left')
-    plt.tight_layout(rect=(0, 0, 0.93, 1))  # Adjust for legend
+    # Use tight_layout to make space for the legend
+    plt.tight_layout(rect=(0, 0, 0.85, 1)) # Adjust rect to make space on the right for legend
     plt.show()
 
 
@@ -593,7 +646,7 @@ if __name__ == "__main__":
     PREDICTION_FILES = [
         PREDICTIONS_DIR + "augustus.bend.h5",
         PREDICTIONS_DIR + "SegmentNT-30kb.bend.h5",
-        # PREDICTIONS_DIR + "tiberius_nosm.bend.h5",
+        PREDICTIONS_DIR + "tiberius_nosm.bend.h5",
         # PREDICTIONS_DIR + "olive-haze-16.test.predictions.h5",
         # PREDICTIONS_DIR + "peachy-microwave-14.test.predictions.h5",
         # PREDICTIONS_DIR + "sparkling-capybara-10.test.predictions.h5",
@@ -605,9 +658,9 @@ if __name__ == "__main__":
     CLASSES_TO_EVALUATE = [BendLabels.EXON]
     METRICS_TO_EVALUATE = [
         EvalMetrics.INDEL,
-        #EvalMetrics.SECTION,
-        #EvalMetrics.ML,
-        #EvalMetrics.FRAMESHIFT
+        EvalMetrics.SECTION,
+        EvalMetrics.ML,
+        EvalMetrics.FRAMESHIFT
     ]
 
     bench_mark_res = run_multiple_evaluations(
