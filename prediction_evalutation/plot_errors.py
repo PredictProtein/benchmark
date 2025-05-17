@@ -277,7 +277,7 @@ def plot_frame_percentage(df_frame_shift_metrics):
     only_frame_data = df_frame_shift_metrics[df_frame_shift_metrics['metric_key'] == 'gt_frames']
 
     def compute_frame_percentages_long(frame_lists):
-        flat = np.concatenate(frame_lists.values)
+        flat = np.concatenate(frame_lists.values[0])
         flat = flat[np.isfinite(flat)].astype(int)  # remove np.inf and ensure int
         counts = np.bincount(flat, minlength=3)[:3]
         total = counts.sum()
@@ -346,16 +346,19 @@ def plot_ml_metrics(df_ml_metrics: pd.DataFrame, class_name: str):
 
 
 if __name__ == "__main__":
-    #compare_prediction_results(
-    #    path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
-    #    paths_to_benchmarks=[
-    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
-    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
-    #        "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
-    #    ],
-    #    path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
-    #    labels=BendLabels,
-    #    classes= [BendLabels.EXON,BendLabels.INTRON],
-    #    metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML,EvalMetrics.FRAMESHIFT],
-    #)
-    compute_and_plot_one()
+    compare_prediction_results(
+        path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
+        paths_to_benchmarks=[
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/SegmentNT-30kb.bend.h5",
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/tiberius_nosm.bend.h5",
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/olive-haze-16.test.predictions.h5",
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/peachy-microwave-14.test.predictions.h5",
+            "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/sparkling-capybara-10.test.predictions.h5",
+        ],
+        path_to_seq_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
+        labels=BendLabels,
+        classes= [BendLabels.EXON,BendLabels.INTRON],
+        metrics=[EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML,EvalMetrics.FRAMESHIFT],
+    )
+    #compute_and_plot_one()

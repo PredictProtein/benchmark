@@ -1,6 +1,7 @@
 import enum
 import os
 import timeit
+import warnings
 from collections import defaultdict
 
 import h5py
@@ -164,9 +165,9 @@ def benchmark_gt_vs_pred_single(
                 grouped_gt_exon_indices, arr=arr, dna_label_class=dna_label_class
             )
             metric_results[dna_label_class.name][EvalMetrics.SECTION.name] = {
-                "total_gt": [total_gt_exons],
-                "correct_pred": [correct_pred_exons],
-                "got_all_right": [got_all_right] if got_all_right is not None else [],
+                "total_gt": total_gt_exons,
+                "correct_pred": correct_pred_exons,
+                "got_all_right": got_all_right,
             }
 
         if EvalMetrics.ML in metrics:
@@ -175,8 +176,9 @@ def benchmark_gt_vs_pred_single(
             )
             metric_results[dna_label_class.name][EvalMetrics.ML.name] = label_metrics
 
-        if EvalMetrics.FRAMESHIFT in metrics and dna_label_class == BendLabels.EXON:
+        if EvalMetrics.FRAMESHIFT in metrics and dna_label_class == labels.EXON:
             metric_results[dna_label_class.name][EvalMetrics.FRAMESHIFT.name] = _get_frame_shift_metrics(gt_labels=gt_labels, pred_labels=pred_labels)
+
 
     return metric_results
 
@@ -190,9 +192,10 @@ def benchmark_gt_vs_pred_multiple(
         collect_individual_results: bool = False,
 ) -> dict[str, dict[str, list[np.ndarray]]]:
     # check data integrity
-    assert len(gt_labels) == len(pred_labels), "The length of gt and pred must match"
-    # metrics shall be computed across all computed labels instead of per sequence (micro averaging instead of macro avg)
-    compute_micro_avg_metrics = False
+    assert len(gt_labels) == len(pred_labels), "There have to equally many gt and pred sequences"
+    if EvalMetrics.FRAMESHIFT in metrics:
+        warnings.warn("The Frameshift metric should only be used if you are sure that the transcript contains all "
+                      " of the annotated exons. Otherwise this metric will produce wrong and misleading results")
 
     if collect_individual_results:
         results = []
@@ -205,16 +208,17 @@ def benchmark_gt_vs_pred_multiple(
             for metric in metrics:
                 results[label_class.name][metric.name] = defaultdict(list)
 
-    # remove the ML metric flag so no per seq perfmetrics are computed
-    if EvalMetrics.ML in metrics:
+    # remove the ML metric flag so not seq pair metrics are computed
+    _micro_average_ml_metrics = False
+    if EvalMetrics.ML in metrics and not collect_individual_results:
         metrics.remove(EvalMetrics.ML)
-        compute_micro_avg_metrics = True
+        _micro_average_ml_metrics = True
 
     # run the single seq benchmark for every gt / pred pair
     for i in tqdm(range(len(gt_labels)), desc="Running benchmark"):
         seq_benchmark_results = benchmark_gt_vs_pred_single(gt_labels=gt_labels[i], pred_labels=pred_labels[i], labels=labels, classes=classes,
                                                             metrics=metrics)
-
+        # store the result json in a list an benchmark the next seq pair
         if collect_individual_results:
             results.append(seq_benchmark_results)
             continue
@@ -225,10 +229,13 @@ def benchmark_gt_vs_pred_multiple(
         for label_class in seq_benchmark_results.keys():
             for metric in seq_benchmark_results[label_class].keys():
                 for x in seq_benchmark_results[label_class][metric]:
-                    results[label_class][metric][x].extend(seq_benchmark_results[label_class][metric][x])
+                    if isinstance(seq_benchmark_results[label_class][metric][x], list):
+                        results[label_class][metric][x].extend(seq_benchmark_results[label_class][metric][x])
+                    else:
+                        results[label_class][metric][x].append(seq_benchmark_results[label_class][metric][x])
 
     # if metrics were requested compute them across all gt/preds and for each label
-    if compute_micro_avg_metrics:
+    if _micro_average_ml_metrics:
         for label_class in classes:
             results[label_class.name][EvalMetrics.ML.name] = _get_summary_statistics(
                 gt_labels=np.concatenate(gt_labels), pred_labels=np.concatenate(pred_labels), target_class=label_class)
@@ -323,7 +330,7 @@ def _get_total_correct_sections(grouped_gt_section_indices: list[np.ndarray], ar
             assert np.sum([x.shape for x in grouped_gt_section_indices]) == 0, (
                 "An empty exon was detected but other exons have content"
             )
-            return 0, 0, None
+            return 0, 0, True
         # get the nucleotieds bordering the section
         left_boundary_index = section[0] - 1
         right_boundary_index = section[-1] + 1
@@ -360,7 +367,7 @@ def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, targ
         dict: A dictionary containing the computed statistics (mcc, recall, precision, specificity).
     """
     if target_class.value not in gt_labels:
-        return {"mcc": [], "recall": [], "precision": [], "specificity": [], "f1":[]}
+        return {"mcc": None, "recall": None, "precision": None, "specificity": None, "f1": None}
 
     binary_gt = np.where(gt_labels == target_class.value, 1, 0)
     binary_pred = np.where(pred_labels == target_class.value, 1, 0)
@@ -443,6 +450,7 @@ if __name__ == "__main__":
     reader = H5Reader(
        path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
        path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
+        #path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/olive-haze-16.test.predictions.h5"
     )
     print(timeit.default_timer())
     res = benchmark_all(
@@ -450,7 +458,9 @@ if __name__ == "__main__":
        path_to_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
        labels=BendLabels,
        classes=[BendLabels.EXON],
-       metrics=[EvalMetrics.INDEL,EvalMetrics.FRAMESHIFT],
+       metrics=[EvalMetrics.INDEL,EvalMetrics.FRAMESHIFT, EvalMetrics.ML],
+        collect_individual_results=True
+
     )
     print(timeit.default_timer())
 

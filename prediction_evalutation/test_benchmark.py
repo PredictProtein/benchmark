@@ -31,9 +31,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                         "joined": []
                     },
                     "SECTION": {
-                        "total_gt": [3],
-                        "correct_pred": [0],
-                        "got_all_right": [False]
+                        "total_gt": 3,
+                        "correct_pred": 0,
+                        "got_all_right": False
                     }
                 }
             },
@@ -56,9 +56,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                         "joined": [np.array([4, 5, 6])],
                     },
                     "SECTION": {
-                        "total_gt": [2],
-                        "correct_pred": [0],
-                        "got_all_right": [False],
+                        "total_gt": 2,
+                        "correct_pred": 0,
+                        "got_all_right":False,
                     }
                 }
             },
@@ -86,9 +86,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                         "joined": [],
                     },
                     "SECTION": {
-                        "total_gt": [3],
-                        "correct_pred": [3],
-                        "got_all_right": [True],
+                        "total_gt": 3,
+                        "correct_pred": 3,
+                        "got_all_right": True,
                     }
                 }
             },
@@ -116,9 +116,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                         "joined": [],
                     },
                     "SECTION": {
-                        "total_gt": [1],
-                        "correct_pred": [1],
-                        "got_all_right": [True],
+                        "total_gt": 1,
+                        "correct_pred": 1,
+                        "got_all_right": True,
                     }
                 }
             },
@@ -146,9 +146,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                         "joined": [],
                     },
                     "SECTION": {
-                        "total_gt": [1],
-                        "correct_pred": [0],
-                        "got_all_right": [False],
+                        "total_gt": 1,
+                        "correct_pred": 0,
+                        "got_all_right": False,
                     }
                 },
                 "EXON": {
@@ -163,9 +163,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                         "joined": [],
                     },
                     "SECTION": {
-                        "total_gt": [2],
-                        "correct_pred": [0],
-                        "got_all_right": [False],
+                        "total_gt": 2,
+                        "correct_pred": 0,
+                        "got_all_right": False,
                     },
                 },
             },
@@ -242,9 +242,9 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             {
                 "INTRON": {
                     "SECTION": {
-                        "total_gt": [1],
-                        "correct_pred": [1],
-                        "got_all_right": [True],
+                        "total_gt": 1,
+                        "correct_pred": 1,
+                        "got_all_right": True,
                     }
                 }
             },
