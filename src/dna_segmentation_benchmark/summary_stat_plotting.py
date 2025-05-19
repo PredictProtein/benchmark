@@ -1,34 +1,27 @@
-from typing import Union
-
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import numpy as np
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.ticker import MaxNLocator
-
+from importlib import resources
 # Assuming these are correctly imported from your project structure
-from single_pred_plotting import plot_pred_vs_gt_enhanced
-from evaluate_predictors import (
-    benchmark_all,
-    H5Reader,
-    benchmark_gt_vs_pred_single,
+from .evaluate_predictors import (
     EvalMetrics,  # Assuming this is an Enum
 )
-from label_definition import BendLabels
 
 # --- Configuration & Global Variables ---
-
+PACKAGE_NAME = "dna_segmentation_benchmark"
 # Icon map for error types
 ICON_MAP = {
-    "5_prime_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_extension.png",
-    "3_prime_extensions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_extension.png",
-    "whole_insertions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_insertion.png",
-    "joined": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/joined_exons.png",
-    "5_prime_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/left_deletion.png",
-    "3_prime_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/right_deletion.png",
-    "whole_deletions": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/exon_deletion.png",
-    "split": "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/icons/split_exons.png",
+    "5_prime_extensions": resources.files(PACKAGE_NAME) / "icons" / "left_extension.png",
+    "3_prime_extensions": resources.files(PACKAGE_NAME) / "icons" / "right_extension.png",
+    "whole_insertions": resources.files(PACKAGE_NAME) / "icons" / "exon_insertion.png",
+    "joined": resources.files(PACKAGE_NAME) / "icons" / "joined_exons.png",
+    "5_prime_deletions": resources.files(PACKAGE_NAME) / "icons" / "left_deletion.png",
+    "3_prime_deletions": resources.files(PACKAGE_NAME) / "icons" / "right_deletion.png",
+    "whole_deletions": resources.files(PACKAGE_NAME) / "icons" / "exon_deletion.png",
+    "split": resources.files(PACKAGE_NAME) / "icons" / "split_exons.png",
 }
 
 # Default figure size for consistency, can be overridden
@@ -58,46 +51,6 @@ def add_icon_to_ax(ax: plt.Axes, icon_path: str, zoom: float = 0.2, x_rel_pos: f
         print(f"Warning: Icon image not found at {icon_path}")
     except Exception as e:
         print(f"Warning: Could not load icon {icon_path}. Error: {e}")
-
-
-def plot_error_summary_bar(error_dict: dict, title: str = "Total Prediction Errors"):
-    """
-    Plots the total number of errors for each error type as a horizontal bar plot.
-
-    Args:
-        error_dict: A dictionary where keys are error type names (str)
-                    and values are lists of error instances.
-        title: The title for the plot.
-    """
-    total_error_dict = {key: len(value) for key, value in error_dict.items()}
-    if not total_error_dict:
-        print("No error data to plot in plot_error_summary_bar.")
-        return
-
-    total_error_df = pd.DataFrame(total_error_dict.items(), columns=["Error Type", "Count"])
-    total_error_df = total_error_df.sort_values(by="Count", ascending=True)
-
-    plt.figure(figsize=DEFAULT_FIG_SIZE)
-    ax = sns.barplot(data=total_error_df, y="Error Type", x="Count", color="skyblue")
-
-    plt.title(title, fontsize=16)
-    plt.xlabel("Number of Errors", fontsize=12)
-    plt.ylabel("Error Type", fontsize=12)
-
-    # Annotate each bar with its total value
-    for p in ax.patches:
-        ax.annotate(
-            f"{int(p.get_width())}",
-            (p.get_width(), p.get_y() + p.get_height() / 2),
-            ha="left",
-            va="center",
-            fontsize=10,
-            color="black",
-            xytext=(5, 0),  # Offset text from the bar
-            textcoords="offset points",
-        )
-
-    plt.show()
 
 
 def plot_individual_error_lengths_histograms(df_indel_lengths: pd.DataFrame, class_name: str):
@@ -454,39 +407,6 @@ def plot_ml_metrics_bar(df_ml_metrics: pd.DataFrame, class_name: str):
 
 
 # --- Main Analysis Functions ---
-
-def analyze_single_prediction(gt_labels: np.ndarray| list, pred_labels: np.ndarray | list,
-                              labels_enum, classes_to_eval, metrics_to_eval : Union[EvalMetrics.INDEL,EvalMetrics.FRAMESHIFT]):
-
-
-    benchmark_results = benchmark_gt_vs_pred_single(
-        gt_labels=gt_labels,  # Assuming first element is the label sequence
-        pred_labels=pred_labels,  # Assuming first element is the label sequence
-        labels=labels_enum,
-        classes=classes_to_eval,
-        metrics=metrics_to_eval
-    )
-
-    # Example: Plotting INDEL errors if INDEL metric was computed for EXON
-    if EvalMetrics.INDEL in metrics_to_eval:
-        for nucleotide_class in classes_to_eval:
-            class_indel_errors = benchmark_results.get(nucleotide_class.name, {}).get(EvalMetrics.INDEL.name, {})
-            if class_indel_errors:
-                plot_error_summary_bar(class_indel_errors, title=f"INDEL Errors for {nucleotide_class.name}")
-
-    # Plotting ground truth vs prediction (assuming gt_annot[0] and pred_annot[0] are label arrays)
-    # And frameshift data is available if EvalMetrics.FRAMESHIFT was run
-    gt_frames_for_plot = None
-    if EvalMetrics.FRAMESHIFT in metrics_to_eval:
-        frameshift_data = benchmark_results.get(BendLabels.EXON.name, {}).get(EvalMetrics.FRAMESHIFT.name, {})
-        gt_frames_for_plot = frameshift_data.get("gt_frames", None)  # Get frameshift info if available
-
-    plot_pred_vs_gt_enhanced(
-        gt_labels,
-        pred_labels,
-        reading_frame= gt_frames_for_plot # Pass frameshift if available, otherwise None
-    )
-    plt.show()
 
 
 def compare_multiple_predictions(per_method_benchmark_res: dict,

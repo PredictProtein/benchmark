@@ -1,10 +1,10 @@
-from pickle import FALSE
+import math
 
 import numpy as np
 import pytest
-import math
-from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMetrics
-from label_definition import BendLabels, CustomTestLabels
+
+from dna_segmentation_benchmark.evaluate_predictors import benchmark_gt_vs_pred_single, EvalMetrics
+from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLabels
 
 
 @pytest.mark.parametrize(
@@ -267,7 +267,7 @@ from label_definition import BendLabels, CustomTestLabels
         ),
         pytest.param(
             np.array([[-1, -1, -1, 5, 5, 5, 5, 5, -1, -1, -1, -1, 5, 5, 5, 5, 5, -1, -1, 5, 5],
-                              [5, 5, 5, 5, 5, -1, -1, -1, 5, 5, 5, 5, -1, 5, 5, 5, 5, 5, 5, -1, -1]]),
+                      [5, 5, 5, 5, 5, -1, -1, -1, 5, 5, 5, 5, -1, 5, 5, 5, 5, 5, 5, -1, -1]]),
             [CustomTestLabels.CDS],
             [EvalMetrics.INDEL],
             {

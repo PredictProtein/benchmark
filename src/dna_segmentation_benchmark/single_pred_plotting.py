@@ -1,6 +1,18 @@
 import numpy as np
 from bokeh.plotting import figure, show, output_file
 from bokeh.models import ColumnDataSource, HoverTool, Range1d, Text # Import Text for alternative Y-axis labels
+from matplotlib import pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+
+TYPE_COLORS = {0: "lightgreen", 2: "lightblue", 8: "black"}
+RF_COLORS = {
+    0: "#66c2a5",  # Medium Teal/Green (Signifies 'Correct' Reading Frame)
+    1: "#fc8d62",  # Medium Orange (Signifies 'Incorrect Frame 1')
+    2: "#8da0cb"  # Medium Blue/Purple (Signifies 'Incorrect Frame 2')
+}
+MISMATCH_HIGHLIGHT_COLOR = "red"
 
 # Helper function to group consecutive identical elements (remains the same)
 def group_annotation(annotation):
@@ -31,7 +43,10 @@ def group_annotation(annotation):
 def plot_pred_vs_gt_enhanced(
     ground_truth: np.array,
     prediction: np.array,
-    reading_frame: np.array = None # Optional reading frame array
+    labels,
+    reading_frame: np.array = None, # Optional reading frame array
+    nuc_label_colors : dict = TYPE_COLORS
+
 ):
     """
     Plots genome annotation tracks for ground truth, prediction, and optionally
@@ -60,6 +75,8 @@ def plot_pred_vs_gt_enhanced(
     ground_truth = np.asarray(ground_truth)
     prediction = np.asarray(prediction)
 
+    assert len(labels) == len(nuc_label_colors), "Number of labels must match number of colors."
+
     if ground_truth.shape != prediction.shape:
         raise ValueError("Ground truth and prediction arrays must have the same shape.")
 
@@ -72,13 +89,6 @@ def plot_pred_vs_gt_enhanced(
 
     # --- Define Colors and Styles ---
     # Using slightly more descriptive variable names
-    TYPE_COLORS = {0: "lightgreen", 2: "lightblue", 8: "black"}
-    RF_COLORS = {
-        0: "#66c2a5",  # Medium Teal/Green (Signifies 'Correct' Reading Frame)
-        1: "#fc8d62",  # Medium Orange (Signifies 'Incorrect Frame 1')
-        2: "#8da0cb"  # Medium Blue/Purple (Signifies 'Incorrect Frame 2')
-    }
-    MISMATCH_HIGHLIGHT_COLOR = "red"
 
     # Line widths
     LINE_WIDTH_QUAD_MATCH = 0.5 # Thin outline for matched quads
@@ -130,7 +140,7 @@ def plot_pred_vs_gt_enhanced(
     for region_type, start, end in grouped_ground_truth:
         type_name = "Exon" if region_type == 0 else "Intron" if region_type == 2 else "Intergenic"
         type_str = f"GT: {type_name}"
-        color = TYPE_COLORS.get(region_type, "gray")
+        color = nuc_label_colors.get(region_type, "gray")
 
         if region_type == 8: # Intergenic line
             ds = gt_line_data
@@ -142,7 +152,7 @@ def plot_pred_vs_gt_enhanced(
             ds['type_str'].append(type_str)
             ds['start'].append(start)
             ds['end'].append(end)
-        elif region_type in TYPE_COLORS: # Exon/Intron quad (0 or 2)
+        elif region_type in nuc_label_colors: # Exon/Intron quad (0 or 2)
             ds = gt_quad_data
             ds['left'].append(start)
             ds['right'].append(end)
@@ -165,7 +175,7 @@ def plot_pred_vs_gt_enhanced(
         status_str = " (Mismatch)" if segment_mismatches else " (Match)"
         type_str = type_str_base + status_str
 
-        color = TYPE_COLORS.get(region_type, "gray") # Base color for fill
+        color = nuc_label_colors.get(region_type, "gray") # Base color for fill
 
         if region_type == 8: # Intergenic line
             ds = pred_line_data
@@ -178,7 +188,7 @@ def plot_pred_vs_gt_enhanced(
             ds['start'].append(start)
             ds['end'].append(end)
             ds['status'].append(status_str)
-        elif region_type in TYPE_COLORS: # Exon/Intron quad (0 or 2)
+        elif region_type in nuc_label_colors: # Exon/Intron quad (0 or 2)
             ds = pred_quad_data
             ds['left'].append(start)
             ds['right'].append(end)
@@ -324,3 +334,43 @@ def plot_pred_vs_gt_enhanced(
     # --- Output ---
     output_file("genome_annotation_comparison_enhanced.html", title="Genome Annotation Comparison")
     show(p)
+
+
+def plot_error_summary_bar(error_dict: dict, title: str = "Total Prediction Errors"):
+    """
+    Plots the total number of errors for each error type as a horizontal bar plot.
+
+    Args:
+        error_dict: A dictionary where keys are error type names (str)
+                    and values are lists of error instances.
+        title: The title for the plot.
+    """
+    total_error_dict = {key: len(value) for key, value in error_dict.items()}
+    if not total_error_dict:
+        print("No error data to plot in plot_error_summary_bar.")
+        return
+
+    total_error_df = pd.DataFrame(total_error_dict.items(), columns=["Error Type", "Count"])
+    total_error_df = total_error_df.sort_values(by="Count", ascending=True)
+
+    plt.figure(figsize=(16, 10))
+    ax = sns.barplot(data=total_error_df, y="Error Type", x="Count", color="skyblue")
+
+    plt.title(title, fontsize=16)
+    plt.xlabel("Number of Errors", fontsize=12)
+    plt.ylabel("Error Type", fontsize=12)
+
+    # Annotate each bar with its total value
+    for p in ax.patches:
+        ax.annotate(
+            f"{int(p.get_width())}",
+            (p.get_width(), p.get_y() + p.get_height() / 2),
+            ha="left",
+            va="center",
+            fontsize=10,
+            color="black",
+            xytext=(5, 0),  # Offset text from the bar
+            textcoords="offset points",
+        )
+
+    plt.show()

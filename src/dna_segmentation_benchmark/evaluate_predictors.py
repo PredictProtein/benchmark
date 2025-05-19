@@ -1,20 +1,15 @@
-import enum
-import os
-import timeit
 import warnings
 from collections import defaultdict
-
-import h5py
-import numpy as np
-from typing import TypeVar, Type, Optional
 from enum import Enum
+from typing import TypeVar, Type, Optional
+
+import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from sklearn.metrics import matthews_corrcoef, recall_score, precision_score, f1_score
 from tqdm import tqdm
-from copy import deepcopy
-from numpy.lib.stride_tricks import sliding_window_view
-from label_definition import BendLabels
 
 dna_class_label_enum = TypeVar("dna_class_label_enum", bound=Enum)
+
 
 class EvalMetrics(Enum):
     INDEL = 0
@@ -23,50 +18,8 @@ class EvalMetrics(Enum):
     _MLMULTIPLE = 3  # allows to compute mcc recall ... across multiple seqs with different averaging
     FRAMESHIFT = 4
 
+
 default_metrics = [EvalMetrics.SECTION, EvalMetrics.ML]
-
-
-class H5Reader:
-    def __init__(self, path_to_gt: str, path_to_predictions: str):
-        assert os.path.isfile(path_to_predictions)
-        assert os.path.isfile(path_to_gt)
-
-        self.bend_pred = h5py.File(path_to_predictions, "r")
-        self.bend_gt = h5py.File(path_to_gt, "r")["labels"]
-
-    def _process_bend(self, bend_array: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Removes the reverse strand labels
-        Args:
-            bend_array: The array with bend annotations
-
-        Returns:
-
-        """
-
-        bend_array_forward = np.copy(bend_array)
-        # replace all reverse labels
-        bend_array_forward[np.isin(bend_array, [4, 5, 6, 7])] = 8
-        # set splice sites to intron
-        bend_array_forward[np.isin(bend_array, [1, 3])] = 2
-
-        bend_array_reverse = np.copy(bend_array)
-        # replace all forward labels
-        bend_array_reverse[np.isin(bend_array, [0, 1, 2, 3])] = 8
-        # set reverse slice site to forward introns and set reverse intron to forward intron
-        bend_array_reverse[np.isin(bend_array, [5, 6, 7])] = 2
-        # set reverse exon to forward exon
-        bend_array_reverse[np.isin(bend_array, [4])] = 0
-        # invert the labels so that I get a "forward seq"
-        bend_array_reverse = bend_array_reverse[::-1]
-
-        return bend_array_forward, bend_array_reverse
-
-    def get_gt_pred_pair(self, key: str) -> tuple[tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
-        gt_fow_rev = self._process_bend(self.bend_gt[int(key)])
-        pred_fov_rev = self._process_bend(self.bend_pred[key][:])
-
-        return (gt_fow_rev[0], pred_fov_rev[0]), (gt_fow_rev[1], pred_fov_rev[1])
 
 
 def benchmark_gt_vs_pred_single(
@@ -169,8 +122,8 @@ def benchmark_gt_vs_pred_single(
             metric_results[dna_label_class.name][EvalMetrics.ML.name] = label_metrics
 
         if EvalMetrics.FRAMESHIFT in metrics and dna_label_class == labels.EXON:
-            metric_results[dna_label_class.name][EvalMetrics.FRAMESHIFT.name] = _get_frame_shift_metrics(gt_labels=gt_labels, pred_labels=pred_labels)
-
+            metric_results[dna_label_class.name][EvalMetrics.FRAMESHIFT.name] = _get_frame_shift_metrics(gt_labels=gt_labels, pred_labels=pred_labels,
+                                                                                                         nucleotide_labels=labels)
 
     return metric_results
 
@@ -369,6 +322,7 @@ def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, targ
     precision = precision_score(binary_gt, binary_pred, zero_division=0)
     f1 = f1_score(binary_gt, binary_pred)
     # Calculate specificity manually
+    # TODO fix this
     tn = np.sum((binary_gt == 0) & (binary_pred == 0))
     fp = np.sum((binary_gt == 0) & (binary_pred == 1))
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
@@ -376,19 +330,19 @@ def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, targ
     return {"mcc": mcc, "recall": recall, "precision": precision, "specificity": specificity, "f1": f1}
 
 
-def _get_frame_shift_metrics(gt_labels: np.ndarray, pred_labels: np.ndarray) -> dict:
-    gt_exon_condition = gt_labels == BendLabels.EXON.value
-    pred_exon_condition = pred_labels == BendLabels.EXON.value
+def _get_frame_shift_metrics(gt_labels: np.ndarray, pred_labels: np.ndarray, nucleotide_labels) -> dict:
+    gt_exon_condition = gt_labels == nucleotide_labels.EXON.value
+    pred_exon_condition = pred_labels == nucleotide_labels.EXON.value
     gt_exon_indices = np.where(gt_exon_condition)[0]
     pred_exon_indices = np.where(pred_exon_condition)[0]
 
     if len(gt_exon_indices) == 0:
-        return {#"codon_matches": [],
-                "gt_frames": []}
+        return {  # "codon_matches": [],
+            "gt_frames": []}
 
     if len(pred_exon_indices) == 0:
-        return {#"codon_matches": [],
-                "gt_frames": []}
+        return {  # "codon_matches": [],
+            "gt_frames": []}
 
     assert len(gt_exon_indices) % 3 == 0, "There is no clear codon usage"
     gt_codons = gt_exon_indices.reshape(-1, 3)
@@ -411,97 +365,11 @@ def _get_frame_shift_metrics(gt_labels: np.ndarray, pred_labels: np.ndarray) -> 
     # Compute modulo 3 differences where valid
     frame_list_test[valid_mask] = np.abs(pred_cumsum[valid_mask] - gt_cumsum[valid_mask]) % 3
 
-    #assert np.all(frame_list == frame_list_test)
+    # assert np.all(frame_list == frame_list_test)
 
-    return {#"codon_matches": [len(common_codons) / gt_codons.shape[0]],
-            "gt_frames": frame_list_test[1:-1]}
+    return {  # "codon_matches": [len(common_codons) / gt_codons.shape[0]],
+        "gt_frames": frame_list_test[1:-1]}
 
     # approach check for each position of gt exon indices how many insertions deletion come before it and calc the frame based on that
 
     # (np.array([[0,1,2],[8,9,10]]) <= 4).sum()
-
-
-def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics, collect_individual_results: bool = False):
-    ids = np.load(path_to_ids)
-    gts = []
-    preds = []
-
-    for seq_id in tqdm(ids,desc="Loading sequence labels"):
-        bend_annot_forward, bend_annot_reverse = reader.get_gt_pred_pair(seq_id)
-
-        gts.append(bend_annot_forward[0])
-        preds.append(bend_annot_forward[1])
-        gts.append(bend_annot_reverse[0])
-        preds.append(bend_annot_reverse[1])
-
-    return benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=deepcopy(metrics),
-                                         collect_individual_results=collect_individual_results)
-
-
-def run_multiple_evaluations(
-        path_to_gt: str,
-        paths_to_predictions: list[str],
-        path_to_seq_ids: str,
-        labels_enum,
-        classes_to_eval: list,
-        metrics_to_eval: list
-):
-    """
-        Benchmarks multiple prediction files against a ground truth and generates comparative plots.
-
-    Args:
-        path_to_gt: Path to the ground truth HDF5 file.
-        paths_to_predictions: A list of paths to prediction HDF5 files.
-        path_to_seq_ids: Path to a .npy file containing sequence IDs for benchmarking.
-        labels_enum: Enum defining data labels (e.g., BendLabels).
-        classes_to_eval: List of class enums to evaluate (e.g., [BendLabels.EXON]).
-        metrics_to_eval: List of metric enums to evaluate (e.g., [EvalMetrics.INDEL]).
-    :param path_to_gt:
-    :param paths_to_predictions:
-    :param path_to_seq_ids:
-    :param labels_enum:
-    :param classes_to_eval:
-    :param metrics_to_eval:
-    :return:
-    """
-    all_results = {}
-    for pred_path in paths_to_predictions:
-        reader = H5Reader(path_to_gt=path_to_gt, path_to_predictions=pred_path)
-        benchmark_results = benchmark_all(
-            reader=reader,
-            path_to_ids=path_to_seq_ids,
-            labels=labels_enum,
-            classes=classes_to_eval,
-            metrics=metrics_to_eval
-        )
-        # Extract method name from file path
-        method_name = pred_path.split("/")[-1].split(".")[0]
-        all_results[method_name] = benchmark_results
-
-    return all_results
-
-if __name__ == "__main__":
-    reader = H5Reader(
-       path_to_gt="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5",
-       path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/augustus.bend.h5",
-        #path_to_predictions="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/olive-haze-16.test.predictions.h5"
-    )
-    print(timeit.default_timer())
-    res = benchmark_all(
-       reader,
-       path_to_ids="/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/bend_test_set_ids.npy",
-       labels=BendLabels,
-       classes=[BendLabels.EXON],
-       metrics=[EvalMetrics.INDEL,EvalMetrics.FRAMESHIFT, EvalMetrics.ML],
-        collect_individual_results=True
-
-    )
-    print(timeit.default_timer())
-
-    #result = benchmark_gt_vs_pred_single(
-    #    gt_labels=np.array([8, 8, 8, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 0, 0, 8, 8, 8, 8]),
-    #    pred_labels=np.array([0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8]),
-    #    labels=BendLabels,
-    #    classes=[BendLabels.EXON],
-    #    metrics=[EvalMetrics.FRAMESHIFT, EvalMetrics.INDEL]
-    #)
