@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import math
 from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMetrics
+from label_definition import BendLabels, CustomTestLabels
 
 
 @pytest.mark.parametrize(
@@ -58,7 +59,7 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
                     "SECTION": {
                         "total_gt": 2,
                         "correct_pred": 0,
-                        "got_all_right":False,
+                        "got_all_right": False,
                     }
                 }
             },
@@ -264,10 +265,30 @@ from evaluate_predictors import benchmark_gt_vs_pred_single, BendLabels, EvalMet
             },
             id="Frameshift_test",
         ),
+        pytest.param(
+            np.array([[-1, -1, -1, 5, 5, 5, 5, 5, -1, -1, -1, -1, 5, 5, 5, 5, 5, -1, -1, 5, 5],
+                              [5, 5, 5, 5, 5, -1, -1, -1, 5, 5, 5, 5, -1, 5, 5, 5, 5, 5, 5, -1, -1]]),
+            [CustomTestLabels.CDS],
+            [EvalMetrics.INDEL],
+            {
+                "CDS": {
+                    "INDEL": {
+                        "5_prime_extensions": [np.array([0, 1, 2])],
+                        "3_prime_extensions": [np.array([17, 18])],
+                        "whole_insertions": [np.array([8, 9, 10, 11])],
+                        "5_prime_deletions": [np.array([12])],
+                        "3_prime_deletions": [np.array([5, 6, 7])],
+                        "whole_deletions": [np.array([19, 20])],
+                        "split": [],
+                        "joined": []
+                    }
+                }
+            },
+            id="Different_label_test",
+        ),
     ],
 )
 def test_benchmark_single(gt_pred_array: np.ndarray, classes, metrics, expected_errors: dict):
-
     # run the benchmark with the test input and the provided arguments
     benchmark_results = benchmark_gt_vs_pred_single(
         gt_labels=gt_pred_array[0], pred_labels=gt_pred_array[1], labels=BendLabels, classes=classes, metrics=metrics
@@ -327,5 +348,5 @@ def _eval_frameshift_metrics(expected_frameshift_metrics, computed_frameshift_me
     assert set(expected_frameshift_metrics.keys()) == set(computed_frameshift_metrics.keys()), "The keys for the frameshift metrics dont match."
 
     for metric in expected_frameshift_metrics.keys():
-        assert (expected_frameshift_metrics[metric] == computed_frameshift_metrics[metric]).all(), "The computed frame assignment does not match the expected frame assignment."
-
+        assert (expected_frameshift_metrics[metric] == computed_frameshift_metrics[
+            metric]).all(), "The computed frame assignment does not match the expected frame assignment."

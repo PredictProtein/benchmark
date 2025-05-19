@@ -12,17 +12,9 @@ from sklearn.metrics import matthews_corrcoef, recall_score, precision_score, f1
 from tqdm import tqdm
 from copy import deepcopy
 from numpy.lib.stride_tricks import sliding_window_view
+from label_definition import BendLabels
 
 dna_class_label_enum = TypeVar("dna_class_label_enum", bound=Enum)
-
-
-class BendLabels(Enum):
-    EXON = 0  # exon on forward strand
-    DF = 1  # donor splice site on forward strand
-    INTRON = 2  # intron on forward strand
-    AF = 3  # acceptor splice site on forward strand
-    NONCODING = 8  # non-coding/intergenic
-
 
 class EvalMetrics(Enum):
     INDEL = 0
@@ -331,7 +323,7 @@ def _get_total_correct_sections(grouped_gt_section_indices: list[np.ndarray], ar
                 "An empty exon was detected but other exons have content"
             )
             return 0, 0, True
-        # get the nucleotieds bordering the section
+        # get the nucleotides bordering the section
         left_boundary_index = section[0] - 1
         right_boundary_index = section[-1] + 1
 
@@ -445,6 +437,48 @@ def benchmark_all(reader: H5Reader, path_to_ids: str, labels, classes, metrics, 
     return benchmark_gt_vs_pred_multiple(gt_labels=gts, pred_labels=preds, labels=labels, classes=classes, metrics=deepcopy(metrics),
                                          collect_individual_results=collect_individual_results)
 
+
+def run_multiple_evaluations(
+        path_to_gt: str,
+        paths_to_predictions: list[str],
+        path_to_seq_ids: str,
+        labels_enum,
+        classes_to_eval: list,
+        metrics_to_eval: list
+):
+    """
+        Benchmarks multiple prediction files against a ground truth and generates comparative plots.
+
+    Args:
+        path_to_gt: Path to the ground truth HDF5 file.
+        paths_to_predictions: A list of paths to prediction HDF5 files.
+        path_to_seq_ids: Path to a .npy file containing sequence IDs for benchmarking.
+        labels_enum: Enum defining data labels (e.g., BendLabels).
+        classes_to_eval: List of class enums to evaluate (e.g., [BendLabels.EXON]).
+        metrics_to_eval: List of metric enums to evaluate (e.g., [EvalMetrics.INDEL]).
+    :param path_to_gt:
+    :param paths_to_predictions:
+    :param path_to_seq_ids:
+    :param labels_enum:
+    :param classes_to_eval:
+    :param metrics_to_eval:
+    :return:
+    """
+    all_results = {}
+    for pred_path in paths_to_predictions:
+        reader = H5Reader(path_to_gt=path_to_gt, path_to_predictions=pred_path)
+        benchmark_results = benchmark_all(
+            reader=reader,
+            path_to_ids=path_to_seq_ids,
+            labels=labels_enum,
+            classes=classes_to_eval,
+            metrics=metrics_to_eval
+        )
+        # Extract method name from file path
+        method_name = pred_path.split("/")[-1].split(".")[0]
+        all_results[method_name] = benchmark_results
+
+    return all_results
 
 if __name__ == "__main__":
     reader = H5Reader(

@@ -11,17 +11,21 @@ def group_annotation(annotation):
     if len(annotation) == 1:
          return [(annotation[0], 0, 1)]
 
-    changes = np.diff(annotation, prepend=annotation[0]) # Use first element as prepend
-    # Find indices where the value changes
+    # Find indices where the value changes compared to the previous element
     # np.where returns a tuple; get the array of indices [0]
-    group_boundaries = np.where(changes != 0)[0]
+    # Adding 1 to the indices from diff on sliced array to get correct original indices
+    change_points = np.where(annotation[1:] != annotation[:-1])[0] + 1
 
-    # Ensure the last group ends at the array length
-    end_boundaries = np.append(group_boundaries[1:], len(annotation))
+    # The start indices of the groups are 0, followed by the change points
+    group_start_indices = np.concatenate(([0], change_points))
+
+    # The end index of a group is the start index of the next group.
+    # The last group ends at the total length of the annotation array.
+    group_end_indices = np.append(change_points, len(annotation))
 
     return [
         (annotation[start], start, end)
-        for start, end in zip(group_boundaries, end_boundaries)
+        for start, end in zip(group_start_indices, group_end_indices)
     ]
 
 def plot_pred_vs_gt_enhanced(

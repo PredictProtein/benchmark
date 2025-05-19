@@ -1,3 +1,5 @@
+from typing import Union
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -6,14 +8,14 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.ticker import MaxNLocator
 
 # Assuming these are correctly imported from your project structure
-from PlotPredictions import plot_pred_vs_gt_enhanced
+from single_pred_plotting import plot_pred_vs_gt_enhanced
 from evaluate_predictors import (
     benchmark_all,
     H5Reader,
     benchmark_gt_vs_pred_single,
-    BendLabels,  # Assuming this is an Enum
     EvalMetrics,  # Assuming this is an Enum
 )
+from label_definition import BendLabels
 
 # --- Configuration & Global Variables ---
 
@@ -453,103 +455,38 @@ def plot_ml_metrics_bar(df_ml_metrics: pd.DataFrame, class_name: str):
 
 # --- Main Analysis Functions ---
 
-def analyze_single_prediction(gt_path: str, pred_path: str, bend_id: str,
-                              labels_enum, classes_to_eval, metrics_to_eval):
-    """
-    Performs benchmarking for a single GT-Prediction pair and plots results.
+def analyze_single_prediction(gt_labels: np.ndarray| list, pred_labels: np.ndarray | list,
+                              labels_enum, classes_to_eval, metrics_to_eval : Union[EvalMetrics.INDEL,EvalMetrics.FRAMESHIFT]):
 
-    Args:
-        gt_path: Path to the ground truth HDF5 file.
-        pred_path: Path to the predictions HDF5 file.
-        bend_id: The BEND ID of the sequence to analyze.
-        labels_enum: Enum defining data labels (e.g., BendLabels).
-        classes_to_eval: List of class enums to evaluate (e.g., [BendLabels.EXON]).
-        metrics_to_eval: List of metric enums to evaluate (e.g., [EvalMetrics.INDEL]).
-    """
-    reader = H5Reader(path_to_gt=gt_path, path_to_predictions=pred_path)
-    gt_annot, pred_annot = reader.get_gt_pred_pair(bend_id)  # Renamed for clarity
-
-    # Example of handling strand: This logic might be specific to your data
-    # If pred_annot is all a specific non-informative label, try using its reverse complement version if available
-    # This part needs to align with how H5Reader provides reversed predictions if needed.
-    # For simplicity, assuming gt_annot and pred_annot are the correct pair to compare.
-    # if (np.array(pred_annot) == 8).all(): # This condition needs context, 8 might mean 'intergenic' or similar
-    #     print(f"Prediction for BEND ID {bend_id} seems uninformative, checking for reverse. (Original logic)")
-    #     # This was how it was in your original code, assuming ben_anot_rev was from reader
-    #     # _, pred_annot_rev = reader.get_gt_pred_pair(bend_id, use_reverse_pred=True) # Hypothetical argument
-    #     # pred_annot = pred_annot_rev # Need to ensure reader can provide this
 
     benchmark_results = benchmark_gt_vs_pred_single(
-        gt_annot=gt_annot[0],  # Assuming first element is the label sequence
-        pred_annot=pred_annot[0],  # Assuming first element is the label sequence
+        gt_labels=gt_labels,  # Assuming first element is the label sequence
+        pred_labels=pred_labels,  # Assuming first element is the label sequence
         labels=labels_enum,
         classes=classes_to_eval,
         metrics=metrics_to_eval
     )
-    benchmark_results["name"] = f"single_analysis_{bend_id}"
-    print("\n--- Single Prediction Benchmark Results ---")
-    print(benchmark_results)
 
     # Example: Plotting INDEL errors if INDEL metric was computed for EXON
-    if BendLabels.EXON in classes_to_eval and EvalMetrics.INDEL in metrics_to_eval:
-        exon_indel_errors = benchmark_results.get(BendLabels.EXON.name, {}).get(EvalMetrics.INDEL.name, {})
-        if exon_indel_errors:
-            plot_error_summary_bar(exon_indel_errors, title=f"INDEL Errors for EXON - BEND ID {bend_id}")
+    if EvalMetrics.INDEL in metrics_to_eval:
+        for nucleotide_class in classes_to_eval:
+            class_indel_errors = benchmark_results.get(nucleotide_class.name, {}).get(EvalMetrics.INDEL.name, {})
+            if class_indel_errors:
+                plot_error_summary_bar(class_indel_errors, title=f"INDEL Errors for {nucleotide_class.name}")
 
     # Plotting ground truth vs prediction (assuming gt_annot[0] and pred_annot[0] are label arrays)
     # And frameshift data is available if EvalMetrics.FRAMESHIFT was run
-    frameshift_data = benchmark_results.get(BendLabels.EXON.name, {}).get(EvalMetrics.FRAMESHIFT.name, {})
-    gt_frames_for_plot = frameshift_data.get("gt_frames", None)  # Get frameshift info if available
+    gt_frames_for_plot = None
+    if EvalMetrics.FRAMESHIFT in metrics_to_eval:
+        frameshift_data = benchmark_results.get(BendLabels.EXON.name, {}).get(EvalMetrics.FRAMESHIFT.name, {})
+        gt_frames_for_plot = frameshift_data.get("gt_frames", None)  # Get frameshift info if available
 
     plot_pred_vs_gt_enhanced(
-        gt_annot[0],
-        pred_annot[0],
-        reading_frame_pred=gt_frames_for_plot  # Pass frameshift if available, otherwise None
+        gt_labels,
+        pred_labels,
+        reading_frame= gt_frames_for_plot # Pass frameshift if available, otherwise None
     )
     plt.show()
-
-
-def run_multiple_evaluations(
-        path_to_gt: str,
-        paths_to_predictions: list[str],
-        path_to_seq_ids: str,
-        labels_enum,
-        classes_to_eval: list,
-        metrics_to_eval: list
-):
-    """
-        Benchmarks multiple prediction files against a ground truth and generates comparative plots.
-
-    Args:
-        path_to_gt: Path to the ground truth HDF5 file.
-        paths_to_predictions: A list of paths to prediction HDF5 files.
-        path_to_seq_ids: Path to a .npy file containing sequence IDs for benchmarking.
-        labels_enum: Enum defining data labels (e.g., BendLabels).
-        classes_to_eval: List of class enums to evaluate (e.g., [BendLabels.EXON]).
-        metrics_to_eval: List of metric enums to evaluate (e.g., [EvalMetrics.INDEL]).
-    :param path_to_gt:
-    :param paths_to_predictions:
-    :param path_to_seq_ids:
-    :param labels_enum:
-    :param classes_to_eval:
-    :param metrics_to_eval:
-    :return:
-    """
-    all_results = {}
-    for pred_path in paths_to_predictions:
-        reader = H5Reader(path_to_gt=path_to_gt, path_to_predictions=pred_path)
-        benchmark_results = benchmark_all(
-            reader=reader,
-            path_to_ids=path_to_seq_ids,
-            labels=labels_enum,
-            classes=classes_to_eval,
-            metrics=metrics_to_eval
-        )
-        # Extract method name from file path
-        method_name = pred_path.split("/")[-1].split(".")[0]
-        all_results[method_name] = benchmark_results
-
-    return all_results
 
 
 def compare_multiple_predictions(per_method_benchmark_res: dict,
@@ -634,61 +571,3 @@ def compare_multiple_predictions(per_method_benchmark_res: dict,
             else:
                 print(f"No FRAMESHIFT data for class {class_name_str}.")
 
-    # --- Script Execution ---
-
-
-if __name__ == "__main__":
-    # Common paths and parameters
-    GT_HDF5_PATH = "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/BEND/gene_finding.hdf5"
-    PREDICTIONS_DIR = "/home/benjaminkroeger/Documents/Master/MasterThesis/Thesis_Code/Benchmark/bechmark_data/predictions_in_bend_format/"
-    SEQ_IDS_PATH = PREDICTIONS_DIR + "bend_test_set_ids.npy"
-
-    PREDICTION_FILES = [
-        PREDICTIONS_DIR + "augustus.bend.h5",
-        PREDICTIONS_DIR + "SegmentNT-30kb.bend.h5",
-        PREDICTIONS_DIR + "tiberius_nosm.bend.h5",
-        # PREDICTIONS_DIR + "olive-haze-16.test.predictions.h5",
-        # PREDICTIONS_DIR + "peachy-microwave-14.test.predictions.h5",
-        # PREDICTIONS_DIR + "sparkling-capybara-10.test.predictions.h5",
-    ]
-
-    # Define which labels, classes, and metrics to process
-    # These must match the enums used in your 'evaluate_predictors' module
-    LABELS = BendLabels
-    CLASSES_TO_EVALUATE = [BendLabels.EXON]
-    METRICS_TO_EVALUATE = [
-        EvalMetrics.INDEL,
-        EvalMetrics.SECTION,
-        EvalMetrics.ML,
-        EvalMetrics.FRAMESHIFT
-    ]
-
-    bench_mark_res = run_multiple_evaluations(
-        path_to_gt=GT_HDF5_PATH,
-        paths_to_predictions=PREDICTION_FILES,
-        path_to_seq_ids=SEQ_IDS_PATH,
-        labels_enum=LABELS,
-        classes_to_eval=CLASSES_TO_EVALUATE,
-        metrics_to_eval=METRICS_TO_EVALUATE,
-    )
-
-    # --- Option 1: Compare multiple prediction results ---
-    compare_multiple_predictions(
-        per_method_benchmark_res=bench_mark_res,
-        classes_to_eval=CLASSES_TO_EVALUATE,
-        metrics_to_eval=METRICS_TO_EVALUATE,
-    )
-
-    # --- Option 2: Analyze a single prediction (example) ---
-    # BEND_ID_TO_ANALYZE = "23" # Example BEND ID
-    # SINGLE_PRED_FILE = PREDICTIONS_DIR + "SegmentNT-30kb.bend.h5" # Example prediction file
-    # analyze_single_prediction(
-    #     gt_path=GT_HDF5_PATH,
-    #     pred_path=SINGLE_PRED_FILE,
-    #     bend_id=BEND_ID_TO_ANALYZE,
-    #     labels_enum=LABELS,
-    #     classes_to_eval=[BendLabels.EXON], # Focus on EXONs for single analysis, for example
-    #     metrics_to_eval=[EvalMetrics.INDEL, EvalMetrics.FRAMESHIFT]
-    # )
-
-    print("\nAnalysis complete.")
