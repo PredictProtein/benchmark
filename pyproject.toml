@@ -40,3 +40,6 @@ include-package-data = true # Ensure this is true
 
 [tool.ruff]
 line-length = 120
+
+[project.urls]
+"Source Code" = "https://github.com/PredictProtein/benchmark"
