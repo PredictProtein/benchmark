@@ -1,37 +1,29 @@
-# rack
-Another benchmark for gene prediction tools
+# DNA segmentation benchmark
+This benchmark provides easy metrics for segmentation tasks beyond the common scores like f1, precision and
+recall. The main motivation for this benchmark is that computing the segmentation performance of a model
+ through micro averaging over individual nucleotides can lead to very wrong conclusions about the actual quality
+of a model. Hence, this package provides a range of additional metrics.
 
-## Usage
-### Install dependencies
-This project uses `uv` for dependency management. Please install `uv` and run
-```bash
-uv sync
-```
-to install the dependencies.
+## Insertion / Deletion / Excision / Incision metric
+Looking at the kind of error models make when segmenting can reveal systematic biases and issues. Further more this package allows to also look
+at the lengths of the different errors.
+### Error counts
+![image](example_plots/indel_error_counts_exon.png)
+### Error lengths
+![image](example_plots/indel_error_lengths_exon.png)
 
-### Quickstart
-Please download the required files by running:
-```bash
-uv run cli.py download
-```
+## Whole section correctness metric
+Instead of measuring how many errors a model makes, these metrics look at if consecutive sections (e.g. Exons or Introns) 
+were labeled correctly entirely 
+### Correctly predicted sections
+![image](example_plots/correct_section_exon.png)
+### All sections of are a sequence are correct
+This metric has to be used carefully. If using this on exons it only makes sense to use this if it certain
+that alternate splicing events are not occurring.
+![image](example_plots/all_sections_correct_exon.png)
 
-#### Getting nucleotide-wise recall and precision (BEND style)
-After that, you can run the BEND Recall and Precision benchmark (BEND Table A8) using the
-following command:
-```bash
-uv run cli.py bend data/predictions/SegmentNT-30kb.h5 data/predictions/augustus.gff3
-```
-
-#### Writing H5 files with predictions translated to the BEND format
-##### AUGUSTUS
-```bash
-uv run cli.py augustus-to-bend data/predictions/augustus.gff3 augustus.bend.h5
-```
-
-##### SegmentNT
-```bash
-uv run cli.py segmentnt-to-bend data/predictions/SegmentNT-30kb.h5 SegmentNT-30kb.bend.h5
-```
-
-
-['3' '13' '23' '33' '45' '60' '63' '75' '83' '93' '103' '113' '123' '133', '143' '153' '163' '173' '184' '193' '203' '213' '222' '233' '242' '252', '261' '270' '280' '295' '304' '312' '321' '330' '341' '350' '360' '370', '380' '390' '408' '410' '420' '430' '440' '450' '460' '469' '478' '487', '492' '506' '515' '525' '536' '547' '556' '566' '575' '585' '595' '605', '615' '625' '634' '642' '652' '662' '673' '682' '692' '702' '712' '722', '732' '742' '752' '761' '770' '782' '791' '800' '810' '820' '830' '840', '850' '860' '870' '879' '889' '899' '909' '919' '929' '947' '957' '970', '979' '989' '999' '1011' '1020' '1029' '1039' '1049' '1059' '1069' '1079', '1088' '1098' '1108' '1109' '1110' '1111' '1112' '1113' '1168' '1178', '1188' '1198' '1208' '1218' '1228' '1238' '1248' '1259' '1268' '1279', '1289' '1298' '1308' '1318' '1328' '1338' '1348' '1349' '1350' '1376', '1386' '1396' '1406' '1416' '1426' '1436' '1447' '1456' '1466' '1475', '1485' '1492' '1505' '1515' '1525' '1535' '1546' '1556' '1567' '1577', '1586' '1597' '1607' '1617' '1627' '1637' '1647' '1657' '1668' '1674', '1682' '1691' '1704' '1712' '1721' '1739' '1750' '1758' '1769' '1776', '1784' '1795' '1802' '1811' '1819' '1829' '1839' '1849' '1861' '1880', '1897' '1906' '1915' '1924' '1928' '1941' '1947' '1955' '1962' '1971', '1989' '1996' '2005' '2014' '2024' '2034' '2044' '2064' '2074' '2080', '2090' '2098' '2107' '2116' '2125' '2133' '2143' '2153' '2163' '2173', '2183' '2193' '2203' '2213' '2223' '2234' '2243' '2252' '2262' '2275', '2287' '2295' '2303' '2313' '2321' '2330' '2340' '2350' '2364' '2375', '2384' '2391' '2400' '2410' '2420' '2430' '2440' '2450' '2460' '2470', '2481' '2490' '2500' '2511' '2520' '2530' '2540' '2550' '2560' '2570', '2589' '2598' '2607' '2617' '2627' '2637' '2647' '2657' '2667' '2677', '2687' '2697' '2709' '2717' '2728' '2738' '2747' '2758' '2767' '2777', '2786' '2797' '2806' '2815' '2824' '2834' '2844' '2854' '2865' '2875', '2885' '2886' '2887' '2915' '2925' '2935' '2945' '2955' '2964' '2974', '2984' '2994' '3004' '3014' '3024' '3034' '3044' '3054' '3065' '3075', '3085' '3095' '3105' '3115' '3125' '3135' '3145' '3155' '3164' '3174', '3186' '3195' '3205' '3215' '3225' '3227' '3247' '3256' '3266' '3276', '3286' '3296' '3308' '3318' '3328' '3338' '3349' '3358' '3368' '3377', '3387' '3397' '3407' '3417' '3428' '3437' '3447' '3457' '3467' '3476', '3486' '3497' '3509' '3519' '3530' '3541' '3551' '3562' '3572' '3591', '3601' '3610' '3619' '3629' '3639' '3649' '3659' '3669' '3679' '3689', '3699' '3708' '3719' '3729' '3739' '3749' '3759' '3769' '3779' '3789', '3798' '3808' '3818' '3828' '3839' '3849' '3861' '3870' '3879' '3890', '3900' '3910' '3920' '3929' '3939' '3949' '3959' '3969' '3979' '3992', '4001' '4010' '4019' '4028' '4037' '4046' '4057' '4066' '4076' '4086', '4097' '4107' '4117' '4127' '4138' '4148' '4158' '4168' '4179' '4189', '4200' '4210' '4220' '4230' '4239' '4249' '4259' '4272' '4286' '4295', '4304' '4313' '4326' '4335' '4342' '4350' '4351' '4370' '4380' '4390', '4400' '4410' '4420' '4430' '4440' '4451' '4460' '4470' '4480' '4490', '4500' '4511' '4521' '4531' '4541' '4551' '4562' '4572' '4573' '4583', '4593' '4603' '4613' '4624' '4633' '4643' '4653' '4663' '4673' '4683', '4693' '4703' '4715' '4725' '4738' '4747' '4756' '4765' '4775' '4784', '4794' '4805' '4814' '4824' '4828' '4835' '4845' '4855' '4865' '4875', '4885' '4895' '4905' '4916' '4925' '4935' '4945' '4956' '4966' '4975', '4985' '4995' '5005' '5016' '5026' '5036' '5046' '5056' '5066' '5077', '5087' '5091' '5098' '5110' '5119' '5129' '5139' '5149' '5161' '5171', '5184' '5193' '5201' '5211' '5221' '5232' '5241' '5251' '5261' '5271', '5281' '5291' '5301' '5311' '5321' '5331' '5341' '5351' '5361' '5371', '5381' '5391' '5405' '5414' '5423' '5432' '5441' '5451' '5461' '5471', '5481' '5491' '5501' '5512' '5522' '5532' '5543' '5554' '5563' '5574', '5584' '5595' '5605' '5615' '5626' '5636' '5646' '5657' '5666' '5676', '5686' '5696' '5706' '5716' '5726' '5737' '5748' '5757' '5767' '5777', '5788' '5797' '5807' '5817' '5827' '5837' '5847' '5857' '5867' '5877', '5887' '5897' '5905' '5918' '5928' '5938' '5948' '5963']
+## Frameshift metrics
+Again, this metric can be incredibly insightful, but you have to be careful how you use it. Unless you
+are sure that all exons are part of the final transcript for all the benchmarked sequences **DON'T USE IT**.
+Your results will be skewed and hold no value. 
+![image](example_plots/frame_shift.png)
