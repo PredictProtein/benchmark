@@ -1,5 +1,6 @@
 import warnings
 from collections import defaultdict
+from copy import deepcopy
 from enum import Enum
 from typing import TypeVar, Type, Optional
 
@@ -138,6 +139,7 @@ def benchmark_gt_vs_pred_multiple(
 ) -> dict[str, dict[str, list[np.ndarray]]]:
     # check data integrity
     assert len(gt_labels) == len(pred_labels), "There have to equally many gt and pred sequences"
+    metrics = deepcopy(metrics) if metrics is not None else default_metrics
     if EvalMetrics.FRAMESHIFT in metrics:
         warnings.warn("The Frameshift metric should only be used if you are sure that the transcript contains all "
                       " of the annotated exons. Otherwise this metric will produce wrong and misleading results")

@@ -27,3 +27,7 @@ Again, this metric can be incredibly insightful, but you have to be careful how 
 are sure that all exons are part of the final transcript for all the benchmarked sequences **DON'T USE IT**.
 Your results will be skewed and hold no value. 
 ![image](example_plots/frame_shift.png)
+
+## Traditional Metrics
+
+![image](example_plots/classic_metrics.png)
