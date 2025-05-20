@@ -1,37 +1,33 @@
-# rack
-Another benchmark for gene prediction tools
+# DNA segmentation benchmark
+This benchmark provides easy metrics for segmentation tasks beyond the common scores like f1, precision and
+recall. The main motivation for this benchmark is that computing the segmentation performance of a model
+ through micro averaging over individual nucleotides can lead to very wrong conclusions about the actual quality
+of a model. Hence, this package provides a range of additional metrics.
 
-## Usage
-### Install dependencies
-This project uses `uv` for dependency management. Please install `uv` and run
-```bash
-uv sync
-```
-to install the dependencies.
+## Insertion / Deletion / Excision / Incision metric
+Looking at the kind of error models make when segmenting can reveal systematic biases and issues. Further more this package allows to also look
+at the lengths of the different errors.
+### Error counts
+![image](example_plots/indel_error_counts_exon.png)
+### Error lengths
+![image](example_plots/indel_error_lengths_exon.png)
 
-### Quickstart
-Please download the required files by running:
-```bash
-uv run cli.py download
-```
+## Whole section correctness metric
+Instead of measuring how many errors a model makes, these metrics look at if consecutive sections (e.g. Exons or Introns) 
+were labeled correctly entirely 
+### Correctly predicted sections
+![image](example_plots/correct_section_exon.png)
+### All sections of are a sequence are correct
+This metric has to be used carefully. If using this on exons it only makes sense to use this if it certain
+that alternate splicing events are not occurring.
+![image](example_plots/all_sections_correct_exon.png)
 
-#### Getting nucleotide-wise recall and precision (BEND style)
-After that, you can run the BEND Recall and Precision benchmark (BEND Table A8) using the
-following command:
-```bash
-uv run cli.py bend data/predictions/SegmentNT-30kb.h5 data/predictions/augustus.gff3
-```
+## Frameshift metrics
+Again, this metric can be incredibly insightful, but you have to be careful how you use it. Unless you
+are sure that all exons are part of the final transcript for all the benchmarked sequences **DON'T USE IT**.
+Your results will be skewed and hold no value. 
+![image](example_plots/frame_shift.png)
 
-#### Writing H5 files with predictions translated to the BEND format
-##### AUGUSTUS
-```bash
-uv run cli.py augustus-to-bend data/predictions/augustus.gff3 augustus.bend.h5
-```
+## Traditional Metrics
 
-##### SegmentNT
-```bash
-uv run cli.py segmentnt-to-bend data/predictions/SegmentNT-30kb.h5 SegmentNT-30kb.bend.h5
-```
-
-
-['1011', '1020', '1029', '103', '1039', '1049', '1059', '1069', '1079', '1088', '1098', '1108', '1109', '1110', ..., '830', '840', '850', '860', '870', '879', '889', '899', '909', '919', '929', '93', '947', '957', '970', '979', '989', '999']
+![image](example_plots/classic_metrics.png)

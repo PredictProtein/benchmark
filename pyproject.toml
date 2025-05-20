@@ -1,15 +1,42 @@
 [project]
-name = "benchmark"
-version = "0.1.0"
-description = "Add your description here"
+name = "dna-segmentation-benchmark"
+version = "0.0.1"
+description = "A collection of different evaluators for dna nucleodtide level labeling"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "biopython>=1.85",
     "bokeh>=3.7.0",
     "h5py>=3.13.0",
     "matplotlib>=3.10.1",
     "numpy>=2.2.4",
     "pandas>=2.2.3",
     "pytest>=8.3.5",
+    "scikit-learn>=1.6.1",
     "seaborn>=0.13.2",
+    "tqdm>=4.67.1",
 ]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+    "jupyter>=1.1.1",
+    "notebook>=7.4.2",
+    "ruff>=0.11.2",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+include-package-data = true # Ensure this is true
+
+[tool.setuptools.package-data]
+"dna_segmentation_benchmark" = ["icons/*.png"]
+
+[tool.ruff]
+line-length = 120
