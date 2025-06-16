@@ -32,16 +32,45 @@ from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLa
                         "joined": []
                     },
                     "SECTION": {
-                        "total_gt": 3,
-                        "correct_pred": 0,
-                        "got_all_right": False
+                        'nucleotide': {'tn': 4, 'fp': 9, 'fn': 6, 'tp': 6},
+                         'section': {'tn': 0, 'fp': 3, 'fn': 1, 'tp': 0},
+                         'strict_section':{'tn': 0 , 'fp': 3, 'fn': 1, 'tp': 0},
+                         'inner_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                         'all_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                         'first_sec_correct_3_prime_boundary': 0,
+                         'last_sec_correct_5_prime_boundary': 0
                     }
                 }
             },
             id="exon_all_insertions_deletions",
         ),
         pytest.param(
-            np.array([[0, 0, 0, 0, 2, 2, 2, 0, 0, 0], [8, 8, 8, 0, 0, 0, 0, 0, 8, 8]]),
+            np.array(
+                [
+                    [8, 8, 8, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 2, 2, 0, 0, 8, 8, 8, 8, 8],
+                    [0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 2, 2, 0, 0, 0, 8, 8, 8, 8],
+                ]
+            ),
+            [BendLabels.EXON],
+            [EvalMetrics.SECTION],
+            {
+                "EXON": {
+                    "SECTION": {
+                        'nucleotide': {'tn': 11, 'fp': 6, 'fn': 0, 'tp': 12},
+                        'section': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 4},
+                        'strict_section': {'tn': 0, 'fp': 3, 'fn': 0, 'tp': 1},
+                        'inner_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'all_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'first_sec_correct_3_prime_boundary': 1,
+                        'last_sec_correct_5_prime_boundary': 1
+                    }
+                }
+            },
+            id="in_depth_section_test",
+        ),
+        pytest.param(
+            np.array([[0, 0, 0, 0, 2, 2, 2, 0, 0, 0],
+                              [8, 8, 8, 0, 0, 0, 0, 0, 8, 8]]),
             [BendLabels.EXON],
             [EvalMetrics.INDEL, EvalMetrics.SECTION],
             {
@@ -57,9 +86,13 @@ from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLa
                         "joined": [np.array([4, 5, 6])],
                     },
                     "SECTION": {
-                        "total_gt": 2,
-                        "correct_pred": 0,
-                        "got_all_right": False,
+                        'nucleotide': {'tn': 0, 'fp': 3, 'fn': 5, 'tp': 2},
+                        'section': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'strict_section': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'inner_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'all_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'first_sec_correct_3_prime_boundary': 0,
+                        'last_sec_correct_5_prime_boundary': 0
                     }
                 }
             },
@@ -73,23 +106,17 @@ from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLa
                 ]
             ),
             [BendLabels.EXON],
-            [EvalMetrics.INDEL, EvalMetrics.SECTION],
+            [EvalMetrics.SECTION],
             {
                 "EXON": {
-                    "INDEL": {
-                        "5_prime_extensions": [],
-                        "3_prime_extensions": [],
-                        "whole_insertions": [],
-                        "5_prime_deletions": [],
-                        "3_prime_deletions": [],
-                        "whole_deletions": [],
-                        "split": [],
-                        "joined": [],
-                    },
                     "SECTION": {
-                        "total_gt": 3,
-                        "correct_pred": 3,
-                        "got_all_right": True,
+                        'nucleotide': {'tn': 13, 'fp': 0, 'fn': 0, 'tp': 12},
+                        'section': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 3},
+                        'strict_section': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 3},
+                        'inner_section_boundaries': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'all_section_boundaries': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'first_sec_correct_3_prime_boundary': 1,
+                        'last_sec_correct_5_prime_boundary': 1
                     }
                 }
             },
@@ -103,23 +130,17 @@ from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLa
                 ]
             ),
             [BendLabels.EXON],
-            [EvalMetrics.INDEL, EvalMetrics.SECTION],
+            [EvalMetrics.SECTION],
             {
                 "EXON": {
-                    "INDEL": {
-                        "5_prime_extensions": [],
-                        "3_prime_extensions": [],
-                        "whole_insertions": [],
-                        "5_prime_deletions": [],
-                        "3_prime_deletions": [],
-                        "whole_deletions": [],
-                        "split": [],
-                        "joined": [],
-                    },
                     "SECTION": {
-                        "total_gt": 1,
-                        "correct_pred": 1,
-                        "got_all_right": True,
+                        'nucleotide': {'tn': 7, 'fp': 0, 'fn': 0, 'tp': 5},
+                        'section': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'strict_section': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'inner_section_boundaries': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 0},
+                        'all_section_boundaries': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'first_sec_correct_3_prime_boundary': 1,
+                        'last_sec_correct_5_prime_boundary': 1
                     }
                 }
             },
@@ -147,9 +168,13 @@ from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLa
                         "joined": [],
                     },
                     "SECTION": {
-                        "total_gt": 1,
-                        "correct_pred": 0,
-                        "got_all_right": False,
+                        'nucleotide': {'tn': 6, 'fp': 1, 'fn': 2, 'tp': 2},
+                        'section': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'strict_section': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'inner_section_boundaries': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 0},
+                        'all_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'first_sec_correct_3_prime_boundary': 0,
+                        'last_sec_correct_5_prime_boundary': 0
                     }
                 },
                 "EXON": {
@@ -164,31 +189,17 @@ from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLa
                         "joined": [],
                     },
                     "SECTION": {
-                        "total_gt": 2,
-                        "correct_pred": 0,
-                        "got_all_right": False,
-                    },
-                },
-            },
-            id="exon_intron_combination_test",
-        ),
-        pytest.param(
-            np.array(
-                [
-                    [8, 8, 0, 0, 0, 0, 2, 2, 2, 0, 0, 8, 8],
-                    [8, 8, 8, 0, 0, 2, 2, 8, 8, 8, 8, 0, 0],
-                ]
-            ),
-            [BendLabels.EXON],
-            [EvalMetrics.ML],
-            {
-                "EXON": {
-                    "ML": {
-                        "mcc": 0.123, "recall": 0.33, "precision": 0.5, "specificity": 0.77
+                        'nucleotide': {'tn': 7, 'fp': 0, 'fn': 3, 'tp': 1},
+                        'section': {'tn': 0, 'fp': 1, 'fn': 1, 'tp': 0},
+                        'strict_section': {'tn': 0, 'fp': 1, 'fn': 1, 'tp': 0},
+                        'inner_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'all_section_boundaries': {'tn': 0, 'fp': 1, 'fn': 0, 'tp': 0},
+                        'first_sec_correct_3_prime_boundary': 0,
+                        'last_sec_correct_5_prime_boundary': 0
                     }
                 },
             },
-            id="exon_ml_metrics",
+            id="exon_intron_combination_test",
         ),
         pytest.param(
             np.array([[8, 8, 8, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 8, 8],
@@ -237,15 +248,19 @@ from dna_segmentation_benchmark.label_definition import BendLabels, CustomTestLa
         ),
         pytest.param(
             np.array([[8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8],
-                      [8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8]]),
+                              [8, 8, 8, 0, 0, 0, 2, 2, 2, 2, 0, 0, 8, 8]]),
             [BendLabels.INTRON],
             [EvalMetrics.SECTION],
             {
                 "INTRON": {
                     "SECTION": {
-                        "total_gt": 1,
-                        "correct_pred": 1,
-                        "got_all_right": True,
+                        'nucleotide': {'tn': 10, 'fp': 0, 'fn': 0, 'tp': 4},
+                        'section': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'strict_section': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'inner_section_boundaries': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 0},
+                        'all_section_boundaries': {'tn': 0, 'fp': 0, 'fn': 0, 'tp': 1},
+                        'first_sec_correct_3_prime_boundary': 1,
+                        'last_sec_correct_5_prime_boundary': 1
                     }
                 }
             },
@@ -318,8 +333,7 @@ def _eval_section_metrics(expected_section_metrics, computed_section_metrics):
     assert set(expected_section_metrics.keys()) == set(computed_section_metrics.keys()), "The keys for the section metrics dont match"
 
     for section_metric in computed_section_metrics.keys():
-        assert expected_section_metrics[section_metric] == computed_section_metrics[
-            section_metric], f"The  computed output of {section_metric} does not match the expected output"
+        assert computed_section_metrics[section_metric] == expected_section_metrics[section_metric] , f"The computed output of {section_metric} does not match the expected output"
 
 
 def _eval_indel_metrics(expected_indel, computed_indel):

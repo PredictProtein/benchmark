@@ -367,7 +367,7 @@ wheels = [
 
 [[package]]
 name = "dna-segmentation-benchmark"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "biopython" },

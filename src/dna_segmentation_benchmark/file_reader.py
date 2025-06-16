@@ -1,6 +1,7 @@
 import os
 import h5py
 import numpy as np
+from gtfparse import read_gtf
 
 class H5Reader:
     def __init__(self, path_to_gt: str, path_to_predictions: str):
@@ -43,3 +44,9 @@ class H5Reader:
         pred_fov_rev = self._process_bend(self.bend_pred[key][:])
 
         return (gt_fow_rev[0], pred_fov_rev[0]), (gt_fow_rev[1], pred_fov_rev[1])
+
+
+
+class GTFReader:
+    pass
+

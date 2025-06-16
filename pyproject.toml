@@ -1,6 +1,6 @@
 [project]
 name = "dna-segmentation-benchmark"
-version = "0.0.1"
+version = "0.0.2"
 description = "A collection of different evaluators for dna nucleodtide level labeling"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -40,3 +40,6 @@ include-package-data = true # Ensure this is true
 
 [tool.ruff]
 line-length = 120
+
+[project.urls]
+"Source Code" = "https://github.com/PredictProtein/benchmark"
