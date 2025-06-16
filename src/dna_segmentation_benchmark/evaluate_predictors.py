@@ -160,15 +160,15 @@ def benchmark_gt_vs_pred_multiple(
 
         for target_class, benchmark_results in aggregated_results.items():
             benchmark_results[EvalMetrics.ML.name] = {}
-            benchmark_results[EvalMetrics.ML.name]["nucleotide_metrics"] = _compute_summary_statistics(
+            benchmark_results[EvalMetrics.ML.name]["nucleotide_level_metrics"] = _compute_summary_statistics(
                 **benchmark_results[EvalMetrics.SECTION.name]["nucleotide"])
-            benchmark_results[EvalMetrics.ML.name]["section_metrics"] = _compute_summary_statistics(
+            benchmark_results[EvalMetrics.ML.name]["encompass_section_match_metrics"] = _compute_summary_statistics(
                 **benchmark_results[EvalMetrics.SECTION.name]["section"])
-            benchmark_results[EvalMetrics.ML.name]["strict_section_metrics"] = _compute_summary_statistics(
+            benchmark_results[EvalMetrics.ML.name]["strict_section_match_metrics"] = _compute_summary_statistics(
                 **benchmark_results[EvalMetrics.SECTION.name]["strict_section"])
-            benchmark_results[EvalMetrics.ML.name]["inner_section_boundaries_metrics"] = _compute_summary_statistics(
+            benchmark_results[EvalMetrics.ML.name]["correct_inner_section_boundaries_metrics"] = _compute_summary_statistics(
                 **benchmark_results[EvalMetrics.SECTION.name]["inner_section_boundaries"])
-            benchmark_results[EvalMetrics.ML.name]["all_section_boundaries_metrics"] = _compute_summary_statistics(
+            benchmark_results[EvalMetrics.ML.name]["correct_overall_section_boundaries_metrics"] = _compute_summary_statistics(
                 **benchmark_results[EvalMetrics.SECTION.name]["all_section_boundaries"])
 
     # if metrics were requested compute them across all gt/preds and for each label
