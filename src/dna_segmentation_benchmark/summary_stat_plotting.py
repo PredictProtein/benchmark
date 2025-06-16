@@ -391,19 +391,25 @@ def plot_ml_metrics_bar(df_ml_metrics: pd.DataFrame, class_name: str):
         id_vars='method_name', var_name='ML Metric', value_name='Score'
     )
 
-    plt.figure(figsize=DEFAULT_FIG_SIZE)
-    ax = sns.barplot(data=ml_scores_melt, y="Score", x="ML Metric", hue='method_name')
+    ml_scores_melt = ml_scores.reset_index().melt(id_vars=["method_name","metric_key"],var_name= "metric",value_name="Score")
 
-    for container in ax.containers:
-        ax.bar_label(container, label_type='edge', padding=3, fmt='%.3f')
+    for level in ml_scores_melt["metric_key"].unique():
 
-    plt.title(f"Machine Learning Metrics - {class_name}", fontsize=16)
-    plt.xlabel("Metric", fontsize=12)
-    plt.ylabel("Score", fontsize=12)
-    plt.ylim(0, 1.05)  # ML metrics usually 0-1
-    plt.legend(title="Method Name", bbox_to_anchor=(1.02, 1), loc='upper left')
-    plt.tight_layout()  # Adjust for legend
-    plt.show()
+        plotting_df_copy = ml_scores_melt[ml_scores_melt["metric_key"] == level].copy()
+
+        plt.figure(figsize=DEFAULT_FIG_SIZE)
+        ax = sns.barplot(data=plotting_df_copy, y="Score", x="metric", hue='method_name')
+
+        for container in ax.containers:
+            ax.bar_label(container, label_type='edge', padding=3, fmt='%.3f')
+
+        plt.title(f"{level} - {class_name}", fontsize=16)
+        plt.xlabel("Metric", fontsize=12)
+        plt.ylabel("Score", fontsize=12)
+        plt.ylim(0, 1.05)  # ML metrics usually 0-1
+        plt.legend(title="Method Name", bbox_to_anchor=(1.02, 1), loc='upper left')
+        plt.tight_layout()  # Adjust for legend
+        plt.show()
 
 
 # --- Main Analysis Functions ---
@@ -460,15 +466,15 @@ def compare_multiple_predictions(per_method_benchmark_res: dict,
             else:
                 print(f"No INDEL data for class {class_name_str}.")
 
-        if EvalMetrics.SECTION in metrics_to_eval:
-            df_class_section = benchmark_df[
-                (benchmark_df['measured_class'] == class_name_str) &
-                (benchmark_df['metric_group'] == EvalMetrics.SECTION.name)
-                ].copy()
-            if not df_class_section.empty:
-                plot_section_metrics_bar(df_class_section, class_name_str)
-            else:
-                print(f"No SECTION data for class {class_name_str}.")
+        #if EvalMetrics.SECTION in metrics_to_eval:
+        #    df_class_section = benchmark_df[
+        #        (benchmark_df['measured_class'] == class_name_str) &
+        #        (benchmark_df['metric_group'] == EvalMetrics.SECTION.name)
+        #        ].copy()
+        #    if not df_class_section.empty:
+        #        plot_section_metrics_bar(df_class_section, class_name_str)
+        #    else:
+        #        print(f"No SECTION data for class {class_name_str}.")
 
         if EvalMetrics.ML in metrics_to_eval:  # Machine Learning Metrics
             df_ml_metrics = benchmark_df[

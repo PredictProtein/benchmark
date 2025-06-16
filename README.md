@@ -31,3 +31,10 @@ Your results will be skewed and hold no value.
 ## Traditional Metrics
 
 ![image](https://raw.githubusercontent.com/PredictProtein/benchmark/main/example_plots/classic_metrics.png)
+
+
+
+#TODO
+
+- Presicion /recall etc on different levels (nucleotide,exon,transcript)
+- viwer for how whole transcripts tend to be mis classified hr6

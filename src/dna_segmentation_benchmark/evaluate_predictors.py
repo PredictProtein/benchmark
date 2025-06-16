@@ -1,3 +1,4 @@
+import functools
 import warnings
 from collections import defaultdict
 from copy import deepcopy
@@ -6,7 +7,7 @@ from typing import TypeVar, Type, Optional
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
-from sklearn.metrics import matthews_corrcoef, recall_score, precision_score, f1_score
+from sklearn.metrics import matthews_corrcoef, recall_score, precision_score, f1_score, confusion_matrix
 from tqdm import tqdm
 
 dna_class_label_enum = TypeVar("dna_class_label_enum", bound=Enum)
@@ -73,13 +74,18 @@ def benchmark_gt_vs_pred_single(
         gt_exon_condition = arr[0, :] == dna_label_class.value
         gt_exon_indices = np.where(gt_exon_condition)[0]
 
+        pred_target_label_condition = arr[1, :] == dna_label_class.value
+        pred_target_label_indices = np.where(pred_target_label_condition)[0]
+
         # group indices that are part of the same deletion/insertion together into arrays
         # Group indices
         grouped_insertion_indices = np.split(insertion_indices, np.where(np.diff(insertion_indices) != 1)[0] + 1)
         grouped_deletion_indices = np.split(deletion_indices, np.where(np.diff(deletion_indices) != 1)[0] + 1)
-        grouped_gt_exon_indices = np.split(gt_exon_indices, np.where(np.diff(gt_exon_indices) != 1)[0] + 1)
 
-        if EvalMetrics.INDEL in metrics:
+        grouped_gt_target_indices = np.split(gt_exon_indices, np.where(np.diff(gt_exon_indices) != 1)[0] + 1)
+        grouped_pred_target_indices = np.split(pred_target_label_indices, np.where(np.diff(pred_target_label_indices) != 1)[0] + 1)
+
+        if EvalMetrics.INDEL in metrics or EvalMetrics.SECTION in metrics:
             # Now the insertions and deletions need to be checked if they are actually border extensions or deletions
             grouped_5_prime_extensions, grouped_3_prime_extensions, joined, grouped_whole_insertions = (
                 _classify_mismatches(
@@ -107,20 +113,14 @@ def benchmark_gt_vs_pred_single(
             metric_results[dna_label_class.name][EvalMetrics.INDEL.name] = indel_results
 
         if EvalMetrics.SECTION in metrics:
-            total_gt_exons, correct_pred_exons, got_all_right = _get_total_correct_sections(
-                grouped_gt_exon_indices, arr=arr, dna_label_class=dna_label_class
+            confusion_metrics = _get_metrics_across_levels(
+                grouped_gt_section_indices=grouped_gt_target_indices,
+                grouped_pred_section_indices=grouped_pred_target_indices,
+                gt_labels=gt_labels,
+                pred_labels=pred_labels,
+                dna_label_class=dna_label_class
             )
-            metric_results[dna_label_class.name][EvalMetrics.SECTION.name] = {
-                "total_gt": total_gt_exons,
-                "correct_pred": correct_pred_exons,
-                "got_all_right": got_all_right,
-            }
-
-        if EvalMetrics.ML in metrics:
-            label_metrics = _get_summary_statistics(
-                gt_labels=gt_labels, pred_labels=pred_labels, target_class=dna_label_class
-            )
-            metric_results[dna_label_class.name][EvalMetrics.ML.name] = label_metrics
+            metric_results[dna_label_class.name][EvalMetrics.SECTION.name] = confusion_metrics
 
         if EvalMetrics.FRAMESHIFT in metrics and dna_label_class == labels.EXON:
             metric_results[dna_label_class.name][EvalMetrics.FRAMESHIFT.name] = _get_frame_shift_metrics(gt_labels=gt_labels, pred_labels=pred_labels,
@@ -135,7 +135,7 @@ def benchmark_gt_vs_pred_multiple(
         labels: Type[dna_class_label_enum],
         classes: list[dna_class_label_enum],
         metrics: Optional[list[EvalMetrics]] = None,
-        collect_individual_results: bool = False,
+        return_individual_results: bool = False,
 ) -> dict[str, dict[str, list[np.ndarray]]]:
     # check data integrity
     assert len(gt_labels) == len(pred_labels), "There have to equally many gt and pred sequences"
@@ -144,50 +144,74 @@ def benchmark_gt_vs_pred_multiple(
         warnings.warn("The Frameshift metric should only be used if you are sure that the transcript contains all "
                       " of the annotated exons. Otherwise this metric will produce wrong and misleading results")
 
-    if collect_individual_results:
-        results = []
-    else:
-        # create a dict to store results
-        results = {}
-        # init the dict with the same structure as the output
-        for label_class in classes:
-            results[label_class.name] = {}
-            for metric in metrics:
-                results[label_class.name][metric.name] = defaultdict(list)
-
-    # remove the ML metric flag so not seq pair metrics are computed
-    _micro_average_ml_metrics = False
-    if EvalMetrics.ML in metrics and not collect_individual_results:
-        metrics.remove(EvalMetrics.ML)
-        _micro_average_ml_metrics = True
-
+    results = []
     # run the single seq benchmark for every gt / pred pair
     for i in tqdm(range(len(gt_labels)), desc="Running benchmark"):
         seq_benchmark_results = benchmark_gt_vs_pred_single(gt_labels=gt_labels[i], pred_labels=pred_labels[i], labels=labels, classes=classes,
                                                             metrics=metrics)
-        # store the result json in a list an benchmark the next seq pair
-        if collect_individual_results:
-            results.append(seq_benchmark_results)
-            continue
+        results.append(seq_benchmark_results)
 
-        assert seq_benchmark_results.keys() == results.keys()
+    if return_individual_results:
+        return results
 
-        # append the result of the sequence to the over all results
-        for label_class in seq_benchmark_results.keys():
-            for metric in seq_benchmark_results[label_class].keys():
-                for x in seq_benchmark_results[label_class][metric]:
-                    if isinstance(seq_benchmark_results[label_class][metric][x], list):
-                        results[label_class][metric][x].extend(seq_benchmark_results[label_class][metric][x])
-                    else:
-                        results[label_class][metric][x].append(seq_benchmark_results[label_class][metric][x])
+    aggregated_results = functools.reduce(recursive_merge, results, {})
+
+    if EvalMetrics.ML in metrics:
+
+        for target_class, benchmark_results in aggregated_results.items():
+            benchmark_results[EvalMetrics.ML.name] = {}
+            benchmark_results[EvalMetrics.ML.name]["nucleotide_metrics"] = _compute_summary_statistics(
+                **benchmark_results[EvalMetrics.SECTION.name]["nucleotide"])
+            benchmark_results[EvalMetrics.ML.name]["section_metrics"] = _compute_summary_statistics(
+                **benchmark_results[EvalMetrics.SECTION.name]["section"])
+            benchmark_results[EvalMetrics.ML.name]["strict_section_metrics"] = _compute_summary_statistics(
+                **benchmark_results[EvalMetrics.SECTION.name]["strict_section"])
+            benchmark_results[EvalMetrics.ML.name]["inner_section_boundaries_metrics"] = _compute_summary_statistics(
+                **benchmark_results[EvalMetrics.SECTION.name]["inner_section_boundaries"])
+            benchmark_results[EvalMetrics.ML.name]["all_section_boundaries_metrics"] = _compute_summary_statistics(
+                **benchmark_results[EvalMetrics.SECTION.name]["all_section_boundaries"])
 
     # if metrics were requested compute them across all gt/preds and for each label
-    if _micro_average_ml_metrics:
-        for label_class in classes:
-            results[label_class.name][EvalMetrics.ML.name] = _get_summary_statistics(
-                gt_labels=np.concatenate(gt_labels), pred_labels=np.concatenate(pred_labels), target_class=label_class)
+    # if _micro_average_ml_metrics:
+    #    for label_class in classes:
+    #        results[label_class.name][EvalMetrics.ML.name] = _get_summary_statistics(
+    #            gt_labels=np.concatenate(gt_labels), pred_labels=np.concatenate(pred_labels), target_class=label_class)
 
-    return results
+    return aggregated_results
+
+
+def recursive_merge(target, source):
+    """
+    Recursively merges a source dictionary into a target dictionary,
+    skipping any key-value pairs where the source value is None.
+    """
+    for key, source_value in source.items():
+        # --- ADDED LINE ---
+        # If the value from the source is None, skip this key entirely.
+        if source_value is None:
+            continue
+        # ------------------
+
+        if key not in target:
+            if isinstance(source_value, dict):
+                target[key] = {}
+                recursive_merge(target[key], source_value)
+            elif isinstance(source_value, list):
+                target[key] = list(source_value)  # Unpack the list
+            else:
+                target[key] = [source_value]
+        else:
+            target_value = target[key]
+            if isinstance(source_value, dict) and isinstance(target_value, dict):
+                recursive_merge(target_value, source_value)
+            elif isinstance(target_value, list):
+                if isinstance(source_value, list):
+                    target_value.extend(source_value)
+                else:
+                    target_value.append(source_value)
+            else:
+                target[key] = [target_value, source_value]
+    return target
 
 
 def _classify_mismatches(
@@ -259,77 +283,128 @@ def _classify_mismatches(
     )
 
 
-def _get_total_correct_sections(grouped_gt_section_indices: list[np.ndarray], arr: np.array, dna_label_class):
+def _get_metrics_across_levels(grouped_gt_section_indices: list[np.ndarray],
+                               grouped_pred_section_indices: list[np.ndarray],
+                               gt_labels: np.ndarray, pred_labels: np.ndarray, dna_label_class):
     """
-    This method check how many gt sections of a traget class were correctly predicted.
-    :param grouped_gt_section_indices:
-    :param arr:
-    :param dna_label_class:
-    :return:
+    Levels to benchmark:
+
+    Nucleotide level
+    Section overlap level (gt is contained fully in pred)
+    Internal full section matches ( are all boundaries excep the start and end correct)
+    Full section matching
     """
-    true_pred = 0
-    total_sections = len(grouped_gt_section_indices)
-    got_all_right = False  # stores if all sections of a sequence were identified correctly
 
-    for section in grouped_gt_section_indices:
-        if section.size == 0:
-            # the grouping some times produces 0 size array aritifacts so this is a sanity check
-            assert np.sum([x.shape for x in grouped_gt_section_indices]) == 0, (
-                "An empty exon was detected but other exons have content"
-            )
-            return 0, 0, True
-        # get the nucleotides bordering the section
-        left_boundary_index = section[0] - 1
-        right_boundary_index = section[-1] + 1
+    # Nucleotide Level
 
-        modified_exon = np.concatenate(([left_boundary_index], section, [right_boundary_index]))
-        # an exon is only correctly predicted if its boundaries are predicted correctly as well
-        # if (arr[0, modified_exon] == arr[1, modified_exon]).all():
-        #    true_pred += 1
+    binary_gt = np.where(gt_labels == dna_label_class.value, 1, 0)
+    binary_pred = np.where(pred_labels == dna_label_class.value, 1, 0)
 
-        # a section is correct if the left and right exon boundaries are predicted to sth other than the target
-        # check if the predicted labels match the gt labels for the selected section
-        if (arr[0, section] == arr[1, section]).all():
-            # check if the borders are different from the traget in the prediction
-            if arr[1, left_boundary_index] != dna_label_class.value and arr[1, right_boundary_index] != dna_label_class.value:
-                true_pred += 1
+    if (binary_gt == binary_pred).all() and len(np.unique(binary_gt)) == 1:
+        nuc_tn = len(binary_gt) - 2
+        nuc_fp, nuc_fn, nuc_tp = 0, 0, 0
+    else:
+        nuc_tn, nuc_fp, nuc_fn, nuc_tp = confusion_matrix(binary_gt[1:-1], binary_pred[1:-1]).ravel()
 
-    if total_sections == true_pred:
-        got_all_right = True
+    # Section overlap level
+    sec_overlap_tn, sec_overlap_fp, sec_overlap_fn, sec_overlap_tp = 0, 0, 0, 0
+    sec_strict_match_tn, sec_strict_match_fp, sec_strict_match_fn, sec_strict_match_tp = 0, 0, 0, 0
 
-    return total_sections, true_pred, got_all_right
+    fully_matching_sections = 0
+    inner_boundary_matching_sections = 0
+
+    first_sec_correct_3_prime_boundary = 0
+    last_sec_correct_5_prime_boundary = 0
+
+    if grouped_gt_section_indices[0].size > 0:
+
+        for i, gt_target_label_section in enumerate(grouped_gt_section_indices):
+
+            # all gt labels match the pred labels, the boundaries are not checked. Pred may be longer
+            if (gt_labels[gt_target_label_section] == pred_labels[gt_target_label_section]).all():
+                sec_overlap_tp += 1
+
+                # if the 3-prime boundary nucleotide is different from the target the section has the right boundary
+                if pred_labels[gt_target_label_section[-1] + 1] != dna_label_class.value:
+
+                    if i == 0:
+                        first_sec_correct_3_prime_boundary = 1
+
+                    # if the 5-prime boundary nucleotide is different from the target the section has the right boundary
+                    if pred_labels[gt_target_label_section[0] - 1] != dna_label_class.value:
+                        # add to inner boundary and fully match
+                        fully_matching_sections += 1
+                        inner_boundary_matching_sections += 1
+                        sec_strict_match_tp += 1
+                        if i == len(grouped_gt_section_indices) - 1:
+                            last_sec_correct_5_prime_boundary = 1
+                        continue
+                    # if the 5-prime boundary was of but the 3 prime right and it was the first exon add it as correcet
+                    if i == 0:
+                        inner_boundary_matching_sections += 1
+
+                if i == len(grouped_gt_section_indices) - 1 and pred_labels[gt_target_label_section[0] - 1] != dna_label_class.value:
+                    last_sec_correct_5_prime_boundary = 1
 
 
-def _get_summary_statistics(gt_labels: np.ndarray, pred_labels: np.ndarray, target_class: dna_class_label_enum) -> dict:
-    """
-    Converts ground truth and prediction labels to binary based on the target class
-    and computes MCC, recall, precision, and specificity.
+            if (gt_labels[gt_target_label_section] != pred_labels[gt_target_label_section]).all():
+                # at no point of the prediction the true target label was predicted
+                sec_overlap_fn += 1
+                sec_strict_match_fn += 1
 
-    Args:
-        gt_labels (np.ndarray): Array of ground truth labels.
-        pred_labels (np.ndarray): Array of predicted labels.
-        target_class (dna_class_label_enum): The enum member representing the target class.
+        # calc the min and max of each target section for fp checking
+        # if a predicted positive does not fully encompass the min and max of a gt section it is a fp
+        gt_section_minimums, gt_section_maximums = zip(*[(np.min(gt_section), np.max(gt_section)) for gt_section in grouped_gt_section_indices])
+    else:
+        gt_section_minimums, gt_section_maximums = -np.inf, np.inf
 
-    Returns:
-        dict: A dictionary containing the computed statistics (mcc, recall, precision, specificity).
-    """
-    if target_class.value not in gt_labels:
-        return {"mcc": None, "recall": None, "precision": None, "specificity": None, "f1": None}
+    if grouped_pred_section_indices[0].size > 0:
+        for i, pred_target_label_section in enumerate(grouped_pred_section_indices):
 
-    binary_gt = np.where(gt_labels == target_class.value, 1, 0)
-    binary_pred = np.where(pred_labels == target_class.value, 1, 0)
+            pred_section_min = np.min(pred_target_label_section)
+            pred_section_max = np.max(pred_target_label_section)
 
-    mcc = matthews_corrcoef(binary_gt, binary_pred)
-    recall = recall_score(binary_gt, binary_pred)
-    precision = precision_score(binary_gt, binary_pred, zero_division=0)
-    f1 = f1_score(binary_gt, binary_pred)
-    # Calculate specificity manually
-    # TODO fix this
-    tn = np.sum((binary_gt == 0) & (binary_pred == 0))
-    fp = np.sum((binary_gt == 0) & (binary_pred == 1))
-    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+            if ~np.any((pred_section_max >= gt_section_maximums) & (pred_section_min <= gt_section_minimums)):
+                sec_overlap_fp += 1
 
-    return {"mcc": mcc, "recall": recall, "precision": precision, "specificity": specificity, "f1": f1}
+            if ~np.any((pred_section_max == gt_section_maximums) & (pred_section_min == gt_section_minimums)):
+                sec_strict_match_fp += 1
+
+    total_number_of_gt_sections = sum([1 if x.size > 0 else 0 for x in grouped_gt_section_indices])
+    total_number_of_pred_sections = sum([1 if x.size > 0 else 0 for x in grouped_pred_section_indices])
+
+    return {
+        "nucleotide": {
+            "tn": nuc_tn, "fp": nuc_fp, "fn": nuc_fn, "tp": nuc_tp},
+        "section": {
+            "tn": sec_overlap_tn, "fp": sec_overlap_fp, "fn": sec_overlap_fn, "tp": sec_overlap_tp
+        },
+        "strict_section": {
+            "tn": sec_strict_match_tn, "fp": sec_strict_match_fp, "fn": sec_strict_match_fn, "tp": sec_strict_match_tp
+        },
+        "inner_section_boundaries": {
+            "tn": 0,
+            "fp": 1 if total_number_of_pred_sections > 0 and inner_boundary_matching_sections != total_number_of_gt_sections else 0,
+            "fn": 1 if total_number_of_pred_sections == 0 and total_number_of_gt_sections > 0 else 0,
+            "tp": 1 if inner_boundary_matching_sections == total_number_of_gt_sections and inner_boundary_matching_sections > 0 else 0
+        } if total_number_of_gt_sections > 1 else {"tn": 0, "fp": 0, "fn": 0, "tp": 0},
+
+        "all_section_boundaries": {
+            "tn": 0,
+            "fp": 1 if total_number_of_pred_sections > 0 and fully_matching_sections != total_number_of_gt_sections else 0,
+            "fn": 1 if total_number_of_pred_sections == 0 and total_number_of_gt_sections > 0 else 0,
+            "tp": 1 if fully_matching_sections == total_number_of_gt_sections and fully_matching_sections > 0 else 0
+        },
+        "first_sec_correct_3_prime_boundary": first_sec_correct_3_prime_boundary,
+        "last_sec_correct_5_prime_boundary": last_sec_correct_5_prime_boundary,
+    }
+
+
+def _compute_summary_statistics(fn: list, tp: list, fp: list, tn: list) -> dict:
+    precision = sum(tp) / (sum(tp) + sum(fp))
+    recall = sum(tp) / (sum(tp) + sum(fn))
+
+    return {"precision": precision, "recall": recall}
 
 
 def _get_frame_shift_metrics(gt_labels: np.ndarray, pred_labels: np.ndarray, nucleotide_labels) -> dict:
@@ -375,3 +450,40 @@ def _get_frame_shift_metrics(gt_labels: np.ndarray, pred_labels: np.ndarray, nuc
     # approach check for each position of gt exon indices how many insertions deletion come before it and calc the frame based on that
 
     # (np.array([[0,1,2],[8,9,10]]) <= 4).sum()
+
+
+if __name__ == "__main__":
+    class CustomLabelDef(Enum):
+        NONCODING = 1
+        EXON = 2
+        INTRON = 3
+
+
+    chosen_eval_metrics = [EvalMetrics.INDEL, EvalMetrics.SECTION, EvalMetrics.ML, EvalMetrics.FRAMESHIFT]
+    classes_to_eval = [CustomLabelDef.EXON]
+
+
+    def unpack_npz_to_list(npz_file_object):
+        data_list = []
+        for key in npz_file_object.keys():
+            data_list.append(npz_file_object[key])
+        return data_list
+
+
+    gt_labels = unpack_npz_to_list(np.load("../../example_data/ground_truth_annotations.npz", allow_pickle=True))
+    augustus_labels = unpack_npz_to_list(np.load("../../example_data/augustus_annotations.npz", allow_pickle=True))
+
+    out = benchmark_gt_vs_pred_multiple(gt_labels=gt_labels,
+                                        pred_labels=augustus_labels,
+                                        labels=CustomLabelDef,
+                                        classes=classes_to_eval,
+                                        metrics=chosen_eval_metrics)
+
+    print(out)
+
+    # example_gt_seq =   [8, 8, 8, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 0, 0, 8, 8, 8, 8]
+    # example_pred_seq = [0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8]
+#
+# evaluation = benchmark_gt_vs_pred_single(gt_labels=example_gt_seq, pred_labels=example_pred_seq, labels=CustomLabelDef,
+#                                         classes=classes_to_eval,
+#                                         metrics=chosen_eval_metrics)
